@@ -298,7 +298,7 @@ class RecipeBook {
             return `
             <article class="recipe-card" data-id="${r.id}" tabindex="0" style="--card:${this.cardColor(r.id)}">
                 <div class="card-thumb">
-                    ${r.photo ? `<img src="${r.photo}" alt="" loading="lazy">` : `<span class="thumb-letter">${esc([...r.title][0] || '?')}</span>`}
+                    ${safePhoto(r.photo) ? `<img src="${esc(safePhoto(r.photo))}" alt="" loading="lazy">` : `<span class="thumb-letter">${esc([...r.title][0] || '?')}</span>`}
                     ${r.favorite ? `<i class="fas fa-star card-fav" aria-label="즐겨찾기"></i>` : ''}
                     ${this.filter.category === 'all' ? `<span class="card-category"><i class="${categoryIcon(r.category)}"></i> ${esc(r.category)}</span>` : ''}
                 </div>
@@ -341,7 +341,7 @@ class RecipeBook {
 
         const content = `
             <div class="detail">
-                ${r.photo ? `<img class="detail-photo" src="${r.photo}" alt="">` : ''}
+                ${safePhoto(r.photo) ? `<img class="detail-photo" src="${esc(safePhoto(r.photo))}" alt="">` : ''}
                 ${r.summary ? `<p class="detail-summary">${esc(r.summary)}</p>` : ''}
                 <div class="detail-meta">
                     <span><i class="${categoryIcon(r.category)}"></i> ${esc(r.category)}</span>
@@ -403,13 +403,14 @@ class RecipeBook {
     async renderEditor(id = null) {
         const r = id ? await idb.doSelectOne('recipe', id) : idb.newRecord('recipe')
         if (!id && this.filter.category !== 'all') r.category = this.filter.category
+        r.photo = safePhoto(r.photo)
         this.editing = { id, photo: r.photo }
 
         const content = `
             <form class="editor" autocomplete="off">
                 <label class="photo-picker ${r.photo ? 'has-photo' : ''}">
                     <input type="file" accept="image/*" class="photo-input" hidden>
-                    <img class="photo-preview" src="${r.photo || ''}" alt="">
+                    <img class="photo-preview" src="${esc(r.photo || '')}" alt="">
                     <span class="photo-empty"><i class="fas fa-camera"></i> 사진 추가 (선택)</span>
                     <button type="button" class="icon-btn solid photo-remove" aria-label="사진 삭제"><i class="fas fa-times"></i></button>
                 </label>
@@ -664,8 +665,10 @@ class RecipeBook {
                 steps: (item.steps || []).map(String),
                 favorite: item.favorite ? 1 : 0,
                 category: this.normalizeCategory(item.category),
-                created_at: item.created_at || Date.now(),
-                updated_at: item.updated_at || Date.now(),
+                title: String(item.title),
+                photo: safePhoto(item.photo),
+                created_at: Number(item.created_at) || Date.now(),
+                updated_at: Number(item.updated_at) || Date.now(),
             })
             count++
         }

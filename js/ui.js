@@ -11,6 +11,12 @@ function esc(text) {
         .replace(/'/g, '&#39;')
 }
 
+// 사진은 이 앱이 만든 data:image base64 형식만 허용합니다.
+// (조작된 백업 파일의 photo 값으로 html 속성을 탈출하는 것을 막기 위함)
+function safePhoto(photo) {
+    return typeof photo === 'string' && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+=*$/.test(photo) ? photo : null
+}
+
 class RecipeUIHandler {
     popup_open = false
     drawer = false
