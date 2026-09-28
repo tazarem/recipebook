@@ -105,6 +105,8 @@ class RecipeBookInit {
                     case 'edit': return recipe_book.renderEditor(id)
                     case 'delete': return recipe_book.deleteRecipe(id)
                     case 'editor-cancel': return ui.closePopup()
+                    case 'lottery-again': return recipe_book.drawLottery()
+                    case 'lottery-open': return recipe_book.renderDetail(id)
                     case 'goto-tag': {
                         // 상세에서 태그를 누르면 그 태그로 목록 필터
                         ui.hidePopup()
@@ -165,6 +167,10 @@ class RecipeBookInit {
         })
     }
 
+    bindLottery() {
+        $('.lottery-fab').addEventListener('click', () => recipe_book.drawLottery())
+    }
+
     bindMenu() {
         $('.menu-screen').addEventListener('change', (e) => {
             if (e.target.name === 'app_theme') {
@@ -197,6 +203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     init_svc.bindCards()
     init_svc.bindPopup()
     init_svc.bindMenu()
+    init_svc.bindLottery()
     // 넓은 화면에서는 필터 패널을 펼쳐 둡니다.
     if (window.matchMedia('(min-width: 769px)').matches) {
         $('.filter-panel').classList.remove('collapse-y')

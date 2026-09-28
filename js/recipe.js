@@ -256,6 +256,8 @@ class RecipeBook {
         const list = this.filtered()
         const container = $('.recipe-container')
         const scope_total = this.recipes.filter(r => this.inCategory(r)).length
+        $('.lottery-fab').classList.toggle('hide', !list.length)
+        $('.lottery-fab .badge').textContent = list.length
         $('.result-count').textContent = this.hasActiveFilter()
             ? `${list.length} / ${scope_total}개`
             : `레시피 ${scope_total}개`
@@ -593,6 +595,109 @@ class RecipeBook {
         const picker = $('.popup-content .photo-picker')
         picker.classList.toggle('has-photo', !!this.editing.photo)
         $('.photo-preview', picker).src = this.editing.photo || ''
+    }
+
+    /* ---------- 메뉴 추첨 ---------- */
+    // 지금 목록(분류 탭 + 태그 + 검색 + 즐겨찾기)에서 하나를 뽑습니다. 필터가 없으면 전체.
+    drawLottery() {
+        const pool = this.filtered()
+        if (!pool.length) return ui.toast('추첨할 레시피가 없어요')
+
+        // 후보가 둘 이상이면 방금 나온 메뉴는 연달아 나오지 않게
+        const candidates = pool.length > 1 ? pool.filter(r => r.id !== this.last_winner_id) : pool
+        const winner = candidates[Math.floor(Math.random() * candidates.length)]
+        this.last_winner_id = winner.id
+        const token = this.lottery_token = (this.lottery_token || 0) + 1
+
+        ui.openPopup({
+            variant: 'lottery',
+            title: `<span class="emoji" aria-hidden="true">🎉</span> <span class="lottery-count">${pool.length}</span>`,
+            content: `
+                <div class="lottery">
+                    <div class="lottery-reel" aria-hidden="true"><span></span></div>
+                    <div class="lottery-result hide" aria-live="polite"></div>
+                </div>`,
+        })
+
+        const reduce_motion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        if (reduce_motion || pool.length === 1) return this.revealWinner(winner, token)
+        this.spinReel(pool, winner, token)
+    }
+
+    // 요리 이름이 빠르게 돌다가 점점 느려지는 룰렛
+    spinReel(pool, winner, token) {
+        const reel = $('.lottery-reel span')
+        const others = pool.filter(r => r.id !== winner.id)
+        let delay = 45
+        let prev = null
+        const step = () => {
+            if (token !== this.lottery_token || !$('.lottery-reel')) return // 닫혔거나 다시 뽑음
+            if (delay > 260) return this.revealWinner(winner, token)
+            let pick
+            do { pick = others[Math.floor(Math.random() * others.length)] } while (others.length > 1 && pick === prev)
+            prev = pick
+            reel.textContent = pick.title
+            reel.classList.remove('tick')
+            void reel.offsetWidth // 애니메이션 재시작
+            reel.classList.add('tick')
+            delay *= 1.13
+            setTimeout(step, delay)
+        }
+        step()
+    }
+
+    revealWinner(r, token) {
+        if (token !== this.lottery_token || !$('.lottery')) return
+        const required = r.ingredients.filter(i => !i.optional).map(i => i.name)
+        const photo = safePhoto(r.photo)
+        $('.lottery-reel').classList.add('hide')
+        const result = $('.lottery-result')
+        result.innerHTML = `
+            <div class="lottery-card" style="--card:${this.cardColor(r.id)}">
+                <div class="lottery-thumb">
+                    ${photo ? `<img src="${esc(photo)}" alt="">` : `<span class="thumb-letter">${esc([...r.title][0] || '?')}</span>`}
+                </div>
+                <div class="lottery-body">
+                    <div class="lottery-category"><i class="${categoryIcon(r.category)}"></i> ${esc(r.category)}</div>
+                    <h3 class="lottery-title">${esc(r.title)}</h3>
+                    <div class="card-meta">
+                        ${r.cook_time ? `<span><i class="far fa-clock"></i> ${esc(r.cook_time)}분</span>` : ''}
+                        ${r.servings ? `<span><i class="fas fa-user-friends"></i> ${esc(r.servings)}인분</span>` : ''}
+                        ${r.level ? `<span>${esc(r.level)}</span>` : ''}
+                    </div>
+                    ${r.methods.length ? `<div class="card-methods">${r.methods.map(m => `<span class="chip mini">${esc(m)}</span>`).join('')}</div>` : ''}
+                    ${required.length ? `<div class="lottery-ingredients">${required.map(esc).join(' · ')}</div>` : ''}
+                </div>
+            </div>
+            <div class="lottery-btns">
+                <button type="button" class="btn ghost" data-action="lottery-again"><i class="fas fa-redo"></i> 다시 뽑기</button>
+                <button type="button" class="btn primary" data-action="lottery-open" data-id="${r.id}"><i class="fas fa-book-open"></i> 레시피 보기</button>
+            </div>`
+        result.classList.remove('hide')
+        this.burstConfetti($('.lottery'))
+    }
+
+    // 폭죽 조각을 가운데에서 사방으로 터뜨립니다.
+    burstConfetti(stage) {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+        const colors = [...this.theme.card_pack.slice(0, 8), this.theme.vars['--accent'], '#FFD54F', '#FF8A80', '#80D8FF']
+        const layer = document.createElement('div')
+        layer.className = 'confetti-layer'
+        for (let i = 0; i < 48; i++) {
+            const piece = document.createElement('i')
+            const angle = Math.random() * Math.PI * 2
+            const dist = 90 + Math.random() * 170
+            piece.className = 'confetti'
+            piece.style.setProperty('--x', `${Math.cos(angle) * dist}px`)
+            piece.style.setProperty('--y', `${Math.sin(angle) * dist - 60}px`)
+            piece.style.setProperty('--r', `${Math.random() * 720 - 360}deg`)
+            piece.style.setProperty('--d', `${700 + Math.random() * 600}ms`)
+            piece.style.background = colors[i % colors.length]
+            if (i % 3 === 0) piece.style.borderRadius = '50%'
+            layer.appendChild(piece)
+        }
+        stage.appendChild(layer)
+        setTimeout(() => layer.remove(), 1500)
     }
 
     /* ---------- 즐겨찾기 / 삭제 ---------- */

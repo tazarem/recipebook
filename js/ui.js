@@ -38,7 +38,9 @@ class RecipeUIHandler {
     }
 
     // 팝업 열기. 이미 열려 있으면 내용만 교체합니다.
-    openPopup({ title = '', actions = '', content = '', before_close = null }) {
+    // variant: 팝업 모양 (''=기본, 'lottery'=가운데 작은 카드)
+    openPopup({ title = '', actions = '', content = '', before_close = null, variant = '' }) {
+        $('.popup').dataset.variant = variant
         $('.popup-header .title').innerHTML = title
         $('.popup-header .actions').innerHTML = actions
         const content_el = $('.popup-content')
@@ -64,6 +66,7 @@ class RecipeUIHandler {
         this.before_close = null
         $('.popup-overlay').classList.add('hide')
         $('.popup-content').innerHTML = ''
+        $('.popup').dataset.variant = ''
         document.body.classList.remove('no-scroll')
     }
 
