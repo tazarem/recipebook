@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#FFCCBC">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="RecipeBook">
+    <meta name="description" content="조리방법과 재료를 태그로 정리하는 나만의 레시피북">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" href="./img/icons/favicon-32.png">
+    <link rel="apple-touch-icon" href="./img/icons/apple-touch-icon.png">
+
+    <link rel="stylesheet" href="./lib/css/fontawesome5/all.min.css">
+    <link rel="stylesheet" href="./css/recipe.css">
+
+    <title>RecipeBook</title>
+
+    <script src="./config.js"></script>
+    <script src="./store/idb.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/tag-input.js"></script>
+    <script src="./js/recipe.js"></script>
+    <script src="./js/init.js"></script>
+</head>
+<body>
+    <header class="top-bar">
+        <div class="logo-cover">
+            <img class="logo-img" src="./img/icons/favicon-32.png" alt="">
+            <div class="logo-text">RecipeBook</div>
+        </div>
+        <div class="right-position">
+            <button type="button" class="top-bar-btn search-btn" aria-label="검색"><i class="fas fa-search"></i></button>
+            <button type="button" class="top-bar-btn filter-toggle" aria-label="태그 필터">
+                <i class="fas fa-sliders-h"></i><span class="badge"></span>
+            </button>
+            <button type="button" class="top-bar-btn recipe-writer" aria-label="새 레시피"><i class="fas fa-plus"></i></button>
+            <button type="button" class="top-bar-btn menu-btn" aria-label="메뉴"><i class="fas fa-bars"></i></button>
+        </div>
+    </header>
+
+    <div class="search-banner collapse-y">
+        <div class="search-inner">
+            <i class="fas fa-search"></i>
+            <input type="search" id="recipe-searcher" placeholder="요리 이름, 재료, 조리방법, 내용 검색" enterkeyhint="search">
+            <button type="button" class="search-deleter hide" aria-label="검색어 지우기"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+
+    <section class="filter-panel collapse-y" aria-label="태그 필터">
+        <div class="filter-inner">
+            <div class="filter-head">
+                <button type="button" class="chip favorite-filter" aria-pressed="false"><i class="fas fa-star"></i> 즐겨찾기</button>
+                <select id="sort-select" aria-label="정렬">
+                    <option value="updated">최근 수정순</option>
+                    <option value="created">최근 작성순</option>
+                    <option value="title">이름순</option>
+                    <option value="time">조리시간 짧은순</option>
+                </select>
+                <button type="button" class="text-btn filter-reset hide"><i class="fas fa-undo"></i> 초기화</button>
+            </div>
+            <div class="filter-row methods">
+                <div class="filter-label"><i class="fas fa-fire"></i> 조리방법</div>
+                <div class="chips"></div>
+            </div>
+            <div class="filter-row ingredients">
+                <div class="filter-label">
+                    <i class="fas fa-carrot"></i> 재료
+                    <button type="button" class="text-btn ingredient-mode hide" title="선택한 재료를 모두 포함 / 하나라도 포함">모두 포함</button>
+                </div>
+                <div class="chips"></div>
+            </div>
+        </div>
+    </section>
+
+    <main class="main">
+        <nav class="category-tabs" role="tablist" aria-label="요리 분류"></nav>
+        <div class="result-count"></div>
+        <div class="recipe-container box-style"></div>
+    </main>
+
+    <!-- popup -->
+    <div class="popup-overlay hide">
+        <div class="popup" role="dialog" aria-modal="true">
+            <div class="popup-header">
+                <div class="title"></div>
+                <div class="right-position">
+                    <div class="actions"></div>
+                    <button type="button" class="icon-btn close" aria-label="닫기"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="popup-content scroll"></div>
+        </div>
+    </div>
+
+    <!-- menu -->
+    <div class="menu-overlay collapse-x">
+        <div class="menu-screen scroll">
+            <h3>테마</h3>
+            <div class="config-caption">컬러 테마를 변경합니다</div>
+            <div class="radio-group">
+                <label><input type="radio" name="app_theme" value="partynote"> 파티노트</label>
+                <label><input type="radio" name="app_theme" value="marine"> 해양</label>
+                <label><input type="radio" name="app_theme" value="cryptic"> 크립틱</label>
+            </div>
+
+            <h3>레이아웃</h3>
+            <div class="config-caption">카드가 배치되는 패턴을 변경합니다</div>
+            <div class="radio-group">
+                <label><input type="radio" name="card_layout" value="box"> <i class="fas fa-th-large"></i> 바둑판</label>
+                <label><input type="radio" name="card_layout" value="list"> <i class="fas fa-list"></i> 리스트</label>
+            </div>
+
+            <h3>백업</h3>
+            <div class="config-caption">레시피는 이 기기의 브라우저(IndexedDB)에만 저장돼요. 기기를 바꾸거나 앱 데이터를 지우기 전에 내보내 두세요.</div>
+            <div class="menu-btn-group">
+                <button type="button" class="btn ghost export-btn"><i class="fas fa-download"></i> 내보내기</button>
+                <button type="button" class="btn ghost import-btn"><i class="fas fa-upload"></i> 가져오기</button>
+                <input type="file" id="import-file" accept="application/json,.json" hidden>
+            </div>
+            <div class="menu-btn-group">
+                <button type="button" class="btn danger-ghost delete-all-btn"><i class="far fa-trash-alt"></i> 전체 삭제</button>
+            </div>
+
+            <h3>버전 정보</h3>
+            <div class="config-caption">RecipeBook <span class="app-version"></span> · PartyNote 기반</div>
+        </div>
+    </div>
+
+    <div class="toast-zone" aria-live="polite"></div>
+</body>
+</html>
