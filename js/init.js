@@ -11,9 +11,11 @@ class RecipeBookInit {
     bindTopBar() {
         $('.search-btn').addEventListener('click', () => {
             const banner = $('.search-banner')
-            const open = banner.classList.toggle('collapse-y')
-            $('.search-btn').classList.toggle('active', !open)
-            if (!open) $('#recipe-searcher').focus()
+            const opened = !banner.classList.toggle('collapse-y')
+            $('.search-btn').classList.toggle('active', opened)
+            // 검색창이 열려 있으면 분류 탭이 그 아래에 붙도록 높이를 알려 줌
+            document.documentElement.style.setProperty('--search-h', opened ? `${banner.scrollHeight}px` : '0px')
+            if (opened) $('#recipe-searcher').focus({ preventScroll: true }) // 보던 위치 그대로
         })
         $('.filter-toggle').addEventListener('click', () => {
             const closed = $('.filter-panel').classList.toggle('collapse-y')

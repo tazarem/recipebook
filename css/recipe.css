@@ -841,13 +841,20 @@ button.chip:hover { border-color: var(--text); }
 .card-ingredients .opt::after { content: '(선택)'; font-size: .85em; }
 
 /* ---------- 분류 ---------- */
+/* 스크롤해도 위쪽 바(검색창이 열려 있으면 그 아래)에 붙어 있음 */
 .category-tabs {
+    position: sticky;
+    top: calc(var(--topbar-h) + env(safe-area-inset-top) + var(--search-h, 0px));
+    z-index: 14;
     display: flex;
     gap: .25rem;
-    margin: .25rem 0 .5rem;
+    margin: .25rem -.75rem .5rem; /* 양옆 여백까지 배경으로 덮어 카드가 비치지 않게 */
+    padding: 0 .75rem;
+    background: var(--bg);
     border-bottom: 1px solid var(--line);
     overflow-x: auto;
     scrollbar-width: none;
+    transition: top .35s ease;
 }
 .category-tabs::-webkit-scrollbar { display: none; }
 .category-tab {
