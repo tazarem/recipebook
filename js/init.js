@@ -97,6 +97,16 @@ class RecipeBookInit {
 
         const popup = $('.popup')
         popup.addEventListener('click', async (e) => {
+            // 메모 속 외부 링크: 이동 전에 한 번 묻습니다.
+            const link = e.target.closest('a[data-ext-link]')
+            if (link) {
+                e.preventDefault()
+                const url = link.getAttribute('href')
+                const ok = await ui.confirm(`외부 링크로 이동할까요?\n${url}`, { ok: '예', cancel: '아니오' })
+                if (ok) window.open(url, '_blank', 'noopener,noreferrer')
+                return
+            }
+
             const action = e.target.closest('[data-action]')
             if (action) {
                 const id = Number(action.dataset.id)
@@ -107,6 +117,10 @@ class RecipeBookInit {
                     case 'editor-cancel': return ui.closePopup()
                     case 'lottery-again': return recipe_book.drawLottery()
                     case 'lottery-open': return recipe_book.renderDetail(id)
+                    case 'shop-add': return shopping_list.addFromInput()
+                    case 'shop-toggle': return shopping_list.toggle(id)
+                    case 'shop-del': return shopping_list.remove(id)
+                    case 'shop-clear-checked': return shopping_list.clearChecked()
                     case 'goto-tag': {
                         // 상세에서 태그를 누르면 그 태그로 목록 필터
                         ui.hidePopup()
@@ -143,6 +157,13 @@ class RecipeBookInit {
             }
         })
 
+        // 만드는 방법·팁 칸은 쓰는 만큼 늘어나고 지우면 줄어듭니다.
+        popup.addEventListener('input', (e) => {
+            if (e.target.matches('.editor textarea')) autoGrow(e.target)
+        })
+        // 화면 폭이 바뀌면(가로 회전 등) 줄바꿈이 달라지니 다시 맞춤
+        window.addEventListener('resize', () => $$('.popup-content .editor textarea').forEach(autoGrow))
+
         popup.addEventListener('change', (e) => {
             if (e.target.matches('.photo-input') && e.target.files[0]) {
                 recipe_book.setPhoto(e.target.files[0])
@@ -157,6 +178,11 @@ class RecipeBookInit {
 
         // 편집기 입력칸에서 Enter로 폼이 제출되지 않도록 (태그 입력기가 Enter를 씀)
         popup.addEventListener('keydown', (e) => {
+            // 장바구니 입력칸 Enter → 추가 (한글 조합 중 Enter는 무시)
+            if (e.key === 'Enter' && !e.isComposing && e.target.matches('.shop-input')) {
+                e.preventDefault()
+                return shopping_list.addFromInput()
+            }
             if (e.key === 'Enter' && e.target.matches('.editor input:not([type=file])')) e.preventDefault()
             // 단계 입력칸에서 Ctrl/Cmd + Enter → 다음 단계 추가
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.matches('.step-editor textarea')) {
@@ -165,6 +191,10 @@ class RecipeBookInit {
                 $('textarea', li).focus()
             }
         })
+    }
+
+    bindShopping() {
+        $('.cart-btn').addEventListener('click', () => shopping_list.open())
     }
 
     bindLottery() {
@@ -204,6 +234,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     init_svc.bindPopup()
     init_svc.bindMenu()
     init_svc.bindLottery()
+    init_svc.bindShopping()
     // 넓은 화면에서는 필터 패널을 펼쳐 둡니다.
     if (window.matchMedia('(min-width: 769px)').matches) {
         $('.filter-panel').classList.remove('collapse-y')
@@ -211,6 +242,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     try {
         await recipe_book.init()
+        await shopping_list.load()
     } catch (e) {
         console.error(e)
         $('.recipe-container').innerHTML = `<div class="empty-state"><p>저장소(IndexedDB)를 열 수 없어요.<br>시크릿 모드라면 일반 창에서 열어 주세요.</p></div>`

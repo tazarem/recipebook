@@ -110,9 +110,12 @@ class RecipeBook {
         this.theme = theme
     }
 
+    // box: 바둑판 | list: 리스트 | name: 이름만 (그림 없이 요리 이름 한 줄)
     applyLayout(layout) {
-        $('.recipe-container').classList.toggle('list-style', layout === 'list')
-        $('.recipe-container').classList.toggle('box-style', layout !== 'list')
+        if (!['box', 'list', 'name'].includes(layout)) layout = 'box'
+        const container = $('.recipe-container')
+        container.classList.remove('box-style', 'list-style', 'name-style')
+        container.classList.add(`${layout}-style`)
         $$('input[name="card_layout"]').forEach(el => el.checked = el.value === layout)
     }
 
@@ -305,7 +308,7 @@ class RecipeBook {
                     ${this.filter.category === 'all' ? `<span class="card-category"><i class="${categoryIcon(r.category)}"></i> ${esc(r.category)}</span>` : ''}
                 </div>
                 <div class="card-body">
-                    <h3 class="card-title">${esc(r.title)}</h3>
+                    <h3 class="card-title">${r.favorite ? `<i class="fas fa-star title-fav" aria-hidden="true"></i>` : ''}${esc(r.title)}</h3>
                     <div class="card-meta">
                         ${r.cook_time ? `<span><i class="far fa-clock"></i> ${esc(r.cook_time)}분</span>` : ''}
                         ${r.servings ? `<span><i class="fas fa-user-friends"></i> ${esc(r.servings)}인분</span>` : ''}
@@ -386,7 +389,7 @@ class RecipeBook {
                 ${r.tips ? `
                 <section>
                     <h4><i class="far fa-lightbulb"></i> 팁 · 메모</h4>
-                    <p class="detail-tips">${esc(r.tips)}</p>
+                    <p class="detail-tips">${linkify(r.tips)}</p>
                 </section>` : ''}
 
                 <div class="detail-date">작성 ${this.formatDate(r.created_at)}${r.updated_at !== r.created_at ? ` · 수정 ${this.formatDate(r.updated_at)}` : ''}</div>
@@ -491,6 +494,7 @@ class RecipeBook {
         })
         const steps = r.steps.length ? r.steps : ['']
         steps.forEach(s => this.addStepRow(s))
+        $$('.editor textarea', form).forEach(autoGrow)
         this.initial_snapshot = JSON.stringify(this.collectForm())
         if (!id) $('.title-input', form).focus()
     }
@@ -509,6 +513,7 @@ class RecipeBook {
         const list = $('.step-editor')
         after ? after.after(li) : list.appendChild(li)
         this.renumberSteps()
+        autoGrow($('textarea', li))
         return li
     }
 
@@ -611,7 +616,7 @@ class RecipeBook {
 
         ui.openPopup({
             variant: 'lottery',
-            title: `<span class="emoji" aria-hidden="true">🎉</span> <span class="lottery-count">${pool.length}</span>`,
+            title: `<span class="emoji" aria-hidden="true">🎉</span> <span class="lottery-title-text"></span>`,
             content: `
                 <div class="lottery">
                     <div class="lottery-reel" aria-hidden="true"><span></span></div>
@@ -619,29 +624,35 @@ class RecipeBook {
                 </div>`,
         })
 
-        const reduce_motion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        if (reduce_motion || pool.length === 1) return this.revealWinner(winner, token)
+        if (pool.length === 1) return this.revealWinner(winner, token)
         this.spinReel(pool, winner, token)
     }
 
-    // 요리 이름이 빠르게 돌다가 점점 느려지는 룰렛
+    // 요리 이름이 빠르게 돌다가 점점 느려지고, 마지막에 당첨작에서 멈추는 룰렛
+    // (동작 줄이기 설정이면 CSS에서 미끄러지는 효과만 빠집니다)
     spinReel(pool, winner, token) {
         const reel = $('.lottery-reel span')
-        const others = pool.filter(r => r.id !== winner.id)
-        let delay = 45
-        let prev = null
+
+        // 후보를 섞고 당첨작을 맨 뒤로 → 이 순서를 반복해서 돌리면 마지막 칸이 당첨작
+        const order = [...pool].sort(() => Math.random() - .5).filter(r => r.id !== winner.id)
+        order.push(winner)
+        const delays = []
+        for (let d = 45; d <= 260; d *= 1.13) delays.push(d)
+        const n = delays.length
+        const titleAt = (i) => order[((order.length - 1 - (n - 1 - i)) % order.length + order.length) % order.length].title
+
+        let i = 0
         const step = () => {
             if (token !== this.lottery_token || !$('.lottery-reel')) return // 닫혔거나 다시 뽑음
-            if (delay > 260) return this.revealWinner(winner, token)
-            let pick
-            do { pick = others[Math.floor(Math.random() * others.length)] } while (others.length > 1 && pick === prev)
-            prev = pick
-            reel.textContent = pick.title
+            reel.textContent = titleAt(i)
             reel.classList.remove('tick')
             void reel.offsetWidth // 애니메이션 재시작
             reel.classList.add('tick')
-            delay *= 1.13
-            setTimeout(step, delay)
+            if (i === n - 1) {
+                reel.classList.add('landed') // 당첨작에서 멈춤
+                return setTimeout(() => this.revealWinner(winner, token), 450)
+            }
+            setTimeout(step, delays[i++])
         }
         step()
     }
@@ -674,6 +685,7 @@ class RecipeBook {
                 <button type="button" class="btn primary" data-action="lottery-open" data-id="${r.id}"><i class="fas fa-book-open"></i> 레시피 보기</button>
             </div>`
         result.classList.remove('hide')
+        $('.popup-header .lottery-title-text').textContent = '당첨!'
         this.burstConfetti($('.lottery'))
     }
 
@@ -723,11 +735,13 @@ class RecipeBook {
     /* ---------- 백업 ---------- */
     async exportBackup() {
         const recipes = await idb.doSelectAll('recipe')
+        const shopping = await idb.doSelectAll('shopping')
         const payload = {
             app: APP_CONFIG.app_alias,
             version: APP_CONFIG.app_version,
             exported_at: new Date().toISOString(),
             recipes,
+            shopping,
         }
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
         const a = document.createElement('a')
@@ -753,6 +767,7 @@ class RecipeBook {
             `레시피 ${list.length}개를 가져옵니다.\n기존 레시피를 모두 지우고 바꿀까요?\n(취소하면 기존 레시피 뒤에 추가해요)`,
             { ok: '모두 바꾸기', cancel: '추가하기', danger: true })
         if (replace) await idb.doTruncate('recipe')
+        const shop_count = await this.importShopping(payload.shopping, replace)
 
         const base = idb.newRecord('recipe')
         let count = 0
@@ -778,13 +793,49 @@ class RecipeBook {
             count++
         }
         await this.reload()
-        ui.toast(`레시피 ${count}개를 가져왔어요`)
+        ui.toast(`레시피 ${count}개${shop_count ? `, 장바구니 ${shop_count}개` : ''}를 가져왔어요`)
+    }
+
+    // 백업의 장바구니 목록. 없거나 형식이 다르면 건너뜁니다.
+    async importShopping(list, replace) {
+        if (!Array.isArray(list)) return 0
+        if (replace) await idb.doTruncate('shopping')
+        const existing = new Set((await idb.doSelectAll('shopping')).map(i => i.text))
+        let count = 0
+        for (const item of list) {
+            const text = String(item?.text ?? '').trim().slice(0, 100)
+            if (!text || existing.has(text)) continue
+            existing.add(text)
+            await idb.doInsert('shopping', {
+                ...idb.newRecord('shopping'),
+                text,
+                checked: item.checked ? 1 : 0,
+                created_at: Number(item.created_at) || Date.now(),
+                checked_at: Number(item.checked_at) || 0,
+            })
+            count++
+        }
+        await shopping_list.refresh()
+        return count
     }
 
     async deleteAll() {
+        if (this.delete_all_open) return // 빠르게 두 번 눌러 확인창이 겹치지 않게
+        this.delete_all_open = true
+        try {
+            await this.confirmAndDeleteAll()
+        } finally {
+            this.delete_all_open = false
+        }
+    }
+
+    async confirmAndDeleteAll() {
         const total = await idb.doCountTotal('recipe')
         if (!total) return ui.toast('지울 레시피가 없어요')
-        const ok = await ui.confirm(`레시피 ${total}개를 모두 삭제할까요?\n먼저 백업을 내보내는 걸 권해요.`, { ok: '모두 삭제', danger: true })
+        const ok = await ui.confirmTyped(
+            `레시피 ${total}개를 모두 삭제할까요?\n삭제하면 되돌릴 수 없어요. 먼저 백업을 내보내는 걸 권해요.`,
+            '정말로 전체 삭제',
+            { ok: '모두 삭제' })
         if (!ok) return
         await idb.doTruncate('recipe')
         await this.reload()

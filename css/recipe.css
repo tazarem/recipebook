@@ -582,7 +582,8 @@ button.chip:hover { border-color: var(--text); }
     border: 1px solid var(--line);
     border-radius: .5rem;
     padding: .5rem .6rem;
-    resize: vertical;
+    resize: none; /* 글 길이에 맞춰 자동으로 늘어남 (ui.js autoGrow) */
+    overflow: hidden;
     line-height: 1.6;
 }
 .editor ::placeholder { color: var(--sub); opacity: .75; }
@@ -657,7 +658,41 @@ button.chip:hover { border-color: var(--text); }
 .ing-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .2rem; }
 .ing-list li { display: flex; align-items: center; gap: .35rem; }
 .ing-list .chip { max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
-.editor .ing-list .ing-amount-inline { flex: 1; min-width: 3rem; padding: .3rem .25rem; font-size: .9rem; }
+/* 재료 이름: 칩 모양이지만 눌러서 바로 고칠 수 있는 입력칸 */
+.editor .ing-list .ing-name-inline {
+    width: auto;
+    flex: 1.4 1 0; /* 이름 : 양 = 1.4 : 1 */
+    min-width: 0;
+    padding: .28rem .7rem;
+    border: 1px solid transparent;
+    border-radius: 2rem;
+    background: var(--accent); /* .editor input 공통 스타일(투명 배경)보다 우선 */
+    color: var(--accent-text);
+    font-weight: bold;
+    cursor: text;
+}
+.editor .ing-list li.optional .ing-name-inline {
+    background: transparent;
+    color: var(--text);
+    border: 1px dashed var(--accent);
+}
+.editor .ing-list .ing-name-inline:focus {
+    border: 1px solid var(--text);
+    background: var(--surface);
+    color: var(--text);
+}
+/* 양: 눌러서 고칠 수 있는 칸이라는 게 보이도록 점선 테두리 */
+.editor .ing-list .ing-amount-inline {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: .3rem .5rem;
+    font-size: .9rem;
+    border: 1px dashed var(--line);
+    border-radius: .45rem;
+    cursor: text;
+}
+.editor .ing-list .ing-amount-inline:hover { border-color: var(--sub); }
+.editor .ing-list .ing-amount-inline:focus { border: 1px solid var(--text); background: var(--surface); }
 .ing-list .icon-btn { width: 1.9rem; height: 1.9rem; font-size: .8rem; opacity: .7; }
 .ing-row { display: flex; gap: .5rem; align-items: center; }
 .editor .ing-row .ing-name { flex: 3; }
@@ -778,9 +813,6 @@ button.chip:hover { border-color: var(--text); }
     .box-style .card-ingredients { display: none; }
     .field-grid { gap: .5rem; }
     .check-list.ingredients { grid-template-columns: 1fr; }
-}
-@media (max-width: 360px) {
-    .logo-text { display: none; }
 }
 
 /* ---------- 선택 재료 ---------- */
@@ -933,15 +965,13 @@ button.chip:hover { border-color: var(--text); }
 .popup[data-variant="lottery"] .popup-header .title { display: flex; align-items: center; gap: .4rem; }
 .popup[data-variant="lottery"] .popup-header .emoji { font-size: 1.4rem; }
 .popup[data-variant="lottery"] .popup-content { overflow: visible; padding-top: .25rem; }
-.lottery-count {
-    font-size: .75rem;
-    font-weight: normal;
-    color: var(--sub);
-    font-family: system-ui, sans-serif;
-    padding: .1rem .5rem;
-    border: 1px solid var(--line);
-    border-radius: 2rem;
+.lottery-title-text {
+    display: inline-block; /* transform 애니메이션은 inline 요소에 안 먹음 */
+    font-size: 1.2rem;
+    font-weight: bold;
+    animation: winner-pop .45s cubic-bezier(.2, 1.6, .4, 1);
 }
+.lottery-title-text:empty { display: none; }
 
 .lottery { position: relative; }
 .lottery-reel {
@@ -963,6 +993,14 @@ button.chip:hover { border-color: var(--text); }
     text-overflow: ellipsis;
 }
 .lottery-reel span.tick { animation: reel-tick .12s ease-out; }
+.lottery-reel span.landed {
+    /* 글자색은 그대로 두고 형광펜처럼 밑줄 강조 (배경과 강조색이 비슷한 테마 대비) */
+    box-shadow: inset 0 -.4em 0 var(--accent);
+    padding: 0 .15em;
+}
+@media (prefers-reduced-motion: reduce) {
+    .lottery-reel span.tick { animation: none; }
+}
 @keyframes reel-tick {
     from { transform: translateY(-60%); opacity: .2; }
     to { transform: none; opacity: 1; }
@@ -1028,3 +1066,161 @@ button.chip:hover { border-color: var(--text); }
     .popup-overlay:has(.popup[data-variant="lottery"]) { padding: 1rem; }
     .popup[data-variant="lottery"] { padding-top: 0; }
 }
+
+/* ---------- 이름만 레이아웃 ---------- */
+.title-fav { display: none; }
+.recipe-container.name-style {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: .4rem;
+}
+.name-style .recipe-card {
+    flex-direction: row;
+    border-left: .45rem solid var(--card);
+    background: var(--surface);
+}
+.name-style .recipe-card:hover { transform: none; }
+.name-style .card-thumb,
+.name-style .card-meta,
+.name-style .card-methods,
+.name-style .card-ingredients { display: none; }
+.name-style .card-body {
+    flex: 1;
+    padding: .7rem .8rem;
+}
+.name-style .card-title {
+    font-size: 1rem;
+    font-weight: bold;
+}
+.name-style .title-fav {
+    display: inline;
+    color: #F9A825;
+    font-size: .8em;
+    margin-right: .35rem;
+}
+@media (max-width: 768px) {
+    .recipe-container.name-style { grid-template-columns: 1fr; }
+}
+
+/* ---------- 전체 삭제 (메뉴 맨 아래) ---------- */
+.danger-zone {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #E5393566;
+}
+.danger-zone h3 { margin-top: 0; color: #E53935; }
+.dialog-typed {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    margin: -.5rem 0 1.25rem;
+    font-size: .88rem;
+}
+.dialog-typed b { color: #E53935; }
+.dialog-typed input {
+    padding: .55rem .65rem;
+    border: 1px solid var(--line);
+    border-radius: .5rem;
+    background: var(--bg);
+    outline: none;
+}
+.dialog-typed input:focus { border-color: #E53935; }
+.btn:disabled { opacity: .35; cursor: not-allowed; filter: none; }
+
+/* ---------- 장바구니 ---------- */
+.popup[data-variant="shopping"] { max-width: 30rem; }
+.shopping { display: flex; flex-direction: column; gap: .4rem; }
+.shop-add-row { display: flex; gap: .5rem; align-items: center; }
+.shop-input {
+    flex: 1;
+    min-width: 0;
+    padding: .6rem .75rem;
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+    background: var(--bg);
+    outline: none;
+}
+.shop-input:focus { border-color: var(--accent); }
+.shop-body { margin-top: .5rem; }
+.shop-list { list-style: none; margin: 0; padding: 0; }
+.shop-list li {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px dashed var(--line);
+}
+.shop-item {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .75rem .25rem;
+    border: 0;
+    background: transparent;
+    text-align: left;
+}
+.shop-check {
+    flex-shrink: 0;
+    width: 1.3rem;
+    height: 1.3rem;
+    border: 1.5px solid var(--sub);
+    border-radius: .35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .7rem;
+    color: transparent;
+}
+.shop-text { overflow-wrap: anywhere; font-size: 1.02rem; }
+.shop-list li.checked .shop-check { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.shop-list li.checked .shop-text { text-decoration: line-through; opacity: .45; }
+.shop-list .icon-btn { opacity: .55; font-size: .85rem; }
+.shop-done-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 1.25rem 0 .1rem;
+    font-size: .82rem;
+    font-weight: bold;
+    color: var(--sub);
+}
+.shop-done-head .text-btn { margin: 0; }
+.shop-empty, .shop-all-done {
+    text-align: center;
+    color: var(--sub);
+    padding: 2rem 0 1rem;
+}
+.shop-empty > i { font-size: 2rem; opacity: .5; }
+.shop-empty p { margin: .6rem 0 0; }
+.shop-all-done { padding: 1rem 0 .25rem; font-weight: bold; }
+
+/* 탑바 버튼이 5개라 좁은 화면에서는 조금 작게 */
+@media (max-width: 480px) {
+    .top-bar-btn { width: 2.45rem; height: 2.45rem; font-size: 1rem; }
+    .logo-cover { font-size: 1.15rem; gap: .4rem; }
+    .logo-img { width: 1.4rem; height: 1.4rem; }
+}
+@media (max-width: 350px) {
+    .logo-text { display: none; }
+}
+
+/* 메모 속 외부 링크 */
+.ext-link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--accent);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+}
+.ext-link::after {
+    content: '\f35d'; /* fa-external-link-alt */
+    display: inline-block; /* 밑줄이 아이콘까지 이어지지 않게 */
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    font-size: .7em;
+    margin-left: .3em;
+    opacity: .6;
+}
+.dialog-message { overflow-wrap: anywhere; }

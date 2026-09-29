@@ -5,7 +5,7 @@
 class IndexedDBClient {
     db
     DATABASE_NAME = APP_CONFIG.app_alias
-    DATABASE_VERSION = 2 // v2: category 인덱스 추가
+    DATABASE_VERSION = 3 // v2: category 인덱스, v3: shopping(장바구니) 테이블
     TABLE_LIST = [
         {
             name: 'recipe',
@@ -37,7 +37,21 @@ class IndexedDBClient {
                 created_at: 0,
                 updated_at: 0,
             }
-        }
+        },
+        {
+            name: 'shopping',
+            option: { keyPath: 'id', autoIncrement: true },
+            indexes: [
+                { name: 'created_at', params: 'created_at', unique: false },
+                { name: 'checked', params: 'checked', unique: false },
+            ],
+            scheme: {
+                text: '',
+                checked: 0,     // 0 | 1
+                created_at: 0,
+                checked_at: 0,
+            }
+        },
     ]
 
     openDatabase() {

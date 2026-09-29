@@ -37,7 +37,15 @@ class TagInput {
             }
             this.renderSuggest()
         })
+        // 추천 태그를 누르는 중에는 blur로 쓰다 만 글자가 태그가 되지 않게 합니다.
+        // (pointerdown → blur → click 순서라서 누르기 시작할 때 표시해 둠)
+        this.picking_suggestion = false
+        $('.tag-suggest', this.root).addEventListener('pointerdown', (e) => {
+            if (e.target.closest('[data-sug]')) this.picking_suggestion = true
+        })
+        this.input.addEventListener('focus', () => this.picking_suggestion = false)
         this.input.addEventListener('blur', () => {
+            if (this.picking_suggestion) return
             if (this.input.value.trim()) this.add(this.input.value, false)
         })
         this.root.addEventListener('click', (e) => {
@@ -45,8 +53,9 @@ class TagInput {
             if (del) return this.remove(Number(del.dataset.del))
             const sug = e.target.closest('[data-sug]')
             if (sug) {
+                // 입력하던 글자는 버리고 고른 태그로 넣습니다.
+                this.picking_suggestion = false
                 this.add(sug.dataset.sug)
-                this.input.focus()
                 return
             }
             if (e.target.closest('.tag-box')) this.input.focus()
@@ -161,6 +170,11 @@ class IngredientInput {
             const amount = e.target.closest('[data-amount]')
             if (amount) this.values[Number(amount.dataset.amount)].amount = amount.value
         })
+        // 재료 이름 수정: 칸을 벗어날 때 확정합니다.
+        this.root.addEventListener('change', (e) => {
+            const name_el = e.target.closest('[data-name]')
+            if (name_el) this.renameAt(Number(name_el.dataset.name), name_el.value)
+        })
     }
 
     // "(선택)", "[선택]" 표시를 떼어내고 선택 재료 여부를 돌려줍니다.
@@ -198,6 +212,22 @@ class IngredientInput {
         this.name_input.focus()
     }
 
+    renameAt(index, raw) {
+        const item = this.values[index]
+        if (!item) return
+        const { text, optional } = IngredientInput.stripOptional(String(raw))
+        const name = text.replace(/[#,]/g, '').trim()
+        if (!name) {
+            ui.toast('재료를 지우려면 ✕를 눌러 주세요')
+        } else if (this.values.some((v, i) => i !== index && v.name === name)) {
+            ui.toast(`'${name}'은(는) 이미 있는 재료예요`)
+        } else {
+            item.name = name
+            if (optional) item.optional = true
+        }
+        this.render() // 되돌리거나 정리된 이름으로 다시 그림
+    }
+
     push({ name, amount, optional = false }) {
         name = name.replace(/#/g, '').trim()
         if (!name) return
@@ -218,8 +248,8 @@ class IngredientInput {
     render() {
         $('.ing-list', this.root).innerHTML = this.values.map((v, i) => `
             <li class="${v.optional ? 'optional' : ''}">
-                <span class="chip on">${esc(v.name)}</span>
-                <input type="text" class="ing-amount-inline" data-amount="${i}" value="${esc(v.amount)}" placeholder="양">
+                <input type="text" class="chip on ing-name-inline" data-name="${i}" value="${esc(v.name)}" maxlength="50" aria-label="재료 이름 (눌러서 수정)">
+                <input type="text" class="ing-amount-inline" data-amount="${i}" value="${esc(v.amount)}" placeholder="양" aria-label="양 (눌러서 수정)">
                 <button type="button" class="opt-toggle ${v.optional ? 'on' : ''}" data-optional="${i}" aria-pressed="${v.optional}" title="없어도 되는 재료">선택</button>
                 <button type="button" class="icon-btn" data-move="${i}:-1" aria-label="위로"><i class="fas fa-chevron-up"></i></button>
                 <button type="button" class="icon-btn" data-move="${i}:1" aria-label="아래로"><i class="fas fa-chevron-down"></i></button>
