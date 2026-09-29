@@ -117,10 +117,8 @@ class RecipeBookInit {
                     case 'editor-cancel': return ui.closePopup()
                     case 'lottery-again': return recipe_book.drawLottery()
                     case 'lottery-open': return recipe_book.renderDetail(id)
-                    case 'shop-add': return shopping_list.addFromInput()
-                    case 'shop-toggle': return shopping_list.toggle(id)
-                    case 'shop-del': return shopping_list.remove(id)
-                    case 'shop-clear-checked': return shopping_list.clearChecked()
+                    case 'meal-save': return meal_plan.save()
+                    case 'meal-cancel': return ui.closePopup()
                     case 'goto-tag': {
                         // 상세에서 태그를 누르면 그 태그로 목록 필터
                         ui.hidePopup()
@@ -131,6 +129,15 @@ class RecipeBookInit {
                         return recipe_book.render()
                     }
                 }
+            }
+
+            // 식단 추가 - 추천 레시피 이름 누르면 입력칸에 채움
+            const pick = e.target.closest('[data-meal-pick]')
+            if (pick) {
+                const input = $('.popup-content .meal-name-input')
+                input.value = pick.dataset.mealPick
+                meal_plan.renderSuggest()
+                return input.focus()
             }
 
             // 편집기 - 만드는 방법 단계
@@ -160,11 +167,14 @@ class RecipeBookInit {
         // 만드는 방법·팁 칸은 쓰는 만큼 늘어나고 지우면 줄어듭니다.
         popup.addEventListener('input', (e) => {
             if (e.target.matches('.editor textarea')) autoGrow(e.target)
+            if (e.target.matches('.meal-name-input')) meal_plan.renderSuggest()
         })
         // 화면 폭이 바뀌면(가로 회전 등) 줄바꿈이 달라지니 다시 맞춤
         window.addEventListener('resize', () => $$('.popup-content .editor textarea').forEach(autoGrow))
 
         popup.addEventListener('change', (e) => {
+            // 식단 추가: 끼니를 고르면 바로 이름을 적을 수 있게
+            if (e.target.name === 'meal_slot') return $('.popup-content .meal-name-input')?.focus()
             if (e.target.matches('.photo-input') && e.target.files[0]) {
                 recipe_book.setPhoto(e.target.files[0])
                 e.target.value = ''
@@ -178,10 +188,10 @@ class RecipeBookInit {
 
         // 편집기 입력칸에서 Enter로 폼이 제출되지 않도록 (태그 입력기가 Enter를 씀)
         popup.addEventListener('keydown', (e) => {
-            // 장바구니 입력칸 Enter → 추가 (한글 조합 중 Enter는 무시)
-            if (e.key === 'Enter' && !e.isComposing && e.target.matches('.shop-input')) {
+            // 식단 이름 칸 Enter → 추가 (한글 조합 중 Enter는 무시)
+            if (e.key === 'Enter' && !e.isComposing && e.target.matches('.meal-name-input')) {
                 e.preventDefault()
-                return shopping_list.addFromInput()
+                return meal_plan.save()
             }
             if (e.key === 'Enter' && e.target.matches('.editor input:not([type=file])')) e.preventDefault()
             // 단계 입력칸에서 Ctrl/Cmd + Enter → 다음 단계 추가
@@ -193,8 +203,66 @@ class RecipeBookInit {
         })
     }
 
+    // 아래 탭: 레시피 | 식단 | 장바구니
+    bindViews() {
+        $('.bottom-nav').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-view]')
+            if (btn) this.switchView(btn.dataset.view)
+        })
+    }
+
+    switchView(view) {
+        if (!['recipes', 'meals', 'shopping'].includes(view)) view = 'recipes'
+        const changed = document.body.dataset.view !== view
+        document.body.dataset.view = view
+        $$('.bottom-nav [data-view]').forEach(b => b.dataset.view === view ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'))
+        if (changed) window.scrollTo(0, 0)
+        recipe_config.set('view', view)
+        if (view === 'meals') meal_plan.render()
+        if (view === 'shopping') shopping_list.render()
+    }
+
     bindShopping() {
-        $('.cart-btn').addEventListener('click', () => shopping_list.open())
+        const view = $('.view-shopping')
+        view.addEventListener('click', (e) => {
+            const action = e.target.closest('[data-action]')
+            if (!action) return
+            const id = Number(action.dataset.id)
+            switch (action.dataset.action) {
+                case 'shop-add': return shopping_list.addFromInput()
+                case 'shop-toggle': return shopping_list.toggle(id)
+                case 'shop-del': return shopping_list.remove(id)
+                case 'shop-clear-checked': return shopping_list.clearChecked()
+            }
+        })
+        // 장바구니 입력칸 Enter → 추가 (한글 조합 중 Enter는 무시)
+        view.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.isComposing && e.target.matches('.shop-input')) {
+                e.preventDefault()
+                shopping_list.addFromInput()
+            }
+        })
+    }
+
+    bindMeals() {
+        const view = $('.view-meals')
+        view.addEventListener('click', (e) => {
+            const week = e.target.closest('[data-meal-week]')
+            if (week) return meal_plan.moveWeek(Number(week.dataset.mealWeek))
+            const add = e.target.closest('[data-meal-add]')
+            if (add) return meal_plan.openAdd(add.dataset.mealAdd)
+            const del = e.target.closest('[data-meal-del]')
+            if (del) return meal_plan.remove(Number(del.dataset.mealDel))
+            const recipe = e.target.closest('[data-meal-recipe]')
+            if (recipe) return meal_plan.openRecipe(Number(recipe.dataset.mealRecipe))
+        })
+        view.addEventListener('keydown', (e) => {
+            const recipe = e.target.closest('[data-meal-recipe]')
+            if (recipe && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault()
+                meal_plan.openRecipe(Number(recipe.dataset.mealRecipe))
+            }
+        })
     }
 
     bindLottery() {
@@ -235,6 +303,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     init_svc.bindMenu()
     init_svc.bindLottery()
     init_svc.bindShopping()
+    init_svc.bindMeals()
+    init_svc.bindViews()
     // 넓은 화면에서는 필터 패널을 펼쳐 둡니다.
     if (window.matchMedia('(min-width: 769px)').matches) {
         $('.filter-panel').classList.remove('collapse-y')
@@ -243,6 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await recipe_book.init()
         await shopping_list.load()
+        init_svc.switchView(recipe_config.get('view')) // 마지막으로 보던 탭
     } catch (e) {
         console.error(e)
         $('.recipe-container').innerHTML = `<div class="empty-state"><p>저장소(IndexedDB)를 열 수 없어요.<br>시크릿 모드라면 일반 창에서 열어 주세요.</p></div>`

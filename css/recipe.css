@@ -19,6 +19,7 @@
     --overlay: #00000026;
     --radius: .75rem;
     --topbar-h: 3.5rem;
+    --nav-h: 3.6rem;
 }
 
 * { box-sizing: border-box; }
@@ -257,7 +258,7 @@ button.chip:hover { border-color: var(--text); }
 .main {
     max-width: 1200px;
     margin: 0 auto;
-    padding: .5rem .75rem calc(6rem + env(safe-area-inset-bottom)); /* 추첨 버튼 자리 */
+    padding: .5rem .75rem calc(var(--nav-h) + 6rem + env(safe-area-inset-bottom)); /* 아래 탭 + 추첨 버튼 자리 */
 }
 .result-count {
     font-size: .8rem;
@@ -755,7 +756,7 @@ button.chip:hover { border-color: var(--text); }
 .toast-zone {
     position: fixed;
     left: 50%;
-    bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    bottom: calc(var(--nav-h) + 1rem + env(safe-area-inset-bottom));
     transform: translateX(-50%);
     z-index: 60;
     display: flex;
@@ -920,7 +921,7 @@ button.chip:hover { border-color: var(--text); }
 .lottery-fab {
     position: fixed;
     right: calc(1rem + env(safe-area-inset-right));
-    bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    bottom: calc(var(--nav-h) + 1rem + env(safe-area-inset-bottom)); /* 아래 탭 바로 위 */
     z-index: 25;
     width: 3.6rem;
     height: 3.6rem;
@@ -1128,7 +1129,6 @@ button.chip:hover { border-color: var(--text); }
 .btn:disabled { opacity: .35; cursor: not-allowed; filter: none; }
 
 /* ---------- 장바구니 ---------- */
-.popup[data-variant="shopping"] { max-width: 30rem; }
 .shopping { display: flex; flex-direction: column; gap: .4rem; }
 .shop-add-row { display: flex; gap: .5rem; align-items: center; }
 .shop-input {
@@ -1224,3 +1224,151 @@ button.chip:hover { border-color: var(--text); }
     opacity: .6;
 }
 .dialog-message { overflow-wrap: anywhere; }
+
+/* ---------- 화면 전환 (아래 탭) ---------- */
+/* 지금 탭이 아닌 화면과, 레시피 화면 전용 도구(검색·필터·새 레시피·추첨)는 숨김 */
+body:not([data-view="recipes"]) .view-recipes,
+body:not([data-view="meals"]) .view-meals,
+body:not([data-view="shopping"]) .view-shopping,
+body:not([data-view="recipes"]) .search-banner,
+body:not([data-view="recipes"]) .filter-panel,
+body:not([data-view="recipes"]) .search-btn,
+body:not([data-view="recipes"]) .filter-toggle,
+body:not([data-view="recipes"]) .recipe-writer,
+body:not([data-view="recipes"]) .lottery-fab {
+    display: none !important;
+}
+.view-meals, .view-shopping { max-width: 720px; }
+.view-title {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: .5rem 0 1rem;
+    font-size: 1.25rem;
+}
+.view-title i { color: var(--accent); }
+
+.bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 26;
+    height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    display: flex;
+    background: var(--bg);
+    box-shadow: inset 0 100px 0 #00000014, 0 -1px 0 var(--line);
+}
+.bottom-nav button {
+    position: relative;
+    flex: 1;
+    border: 0;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .15rem;
+    color: var(--sub);
+    font-size: .72rem;
+}
+.bottom-nav button i { font-size: 1.15rem; }
+.bottom-nav button[aria-current="page"] { color: var(--text); font-weight: bold; }
+.bottom-nav button[aria-current="page"] i { color: var(--accent); }
+.bottom-nav .badge {
+    position: absolute;
+    top: .35rem;
+    left: calc(50% + .45rem);
+    min-width: 1.05rem;
+    height: 1.05rem;
+    padding: 0 .25rem;
+    border-radius: 1rem;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: .65rem;
+    font-weight: bold;
+    line-height: 1.05rem;
+    font-family: system-ui, sans-serif;
+}
+.bottom-nav .badge:empty { display: none; }
+
+/* ---------- 식단 ---------- */
+.meal-week-nav {
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    margin: .25rem 0 .75rem;
+}
+.meal-week-label { font-weight: bold; font-size: 1.05rem; padding: 0 .25rem; }
+.meal-this-week { margin-left: auto; }
+.meal-days { display: flex; flex-direction: column; gap: .5rem; }
+.meal-day {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: 0 0 0 1px var(--line);
+    padding: .35rem .5rem .35rem .85rem;
+}
+.meal-day.today { box-shadow: 0 0 0 2px var(--accent); }
+.meal-day-head { display: flex; align-items: center; gap: .45rem; min-height: 2.25rem; }
+.meal-weekday { font-weight: bold; font-size: 1.05rem; }
+.meal-weekday.sun { color: #E53935; }
+.meal-weekday.sat { color: #1E88E5; }
+[data-theme="cryptic"] .meal-weekday.sun { color: #FF6E6E; }
+[data-theme="cryptic"] .meal-weekday.sat { color: #6EB6FF; }
+.meal-date { color: var(--sub); font-size: .88rem; font-family: system-ui, sans-serif; }
+.meal-today {
+    padding: .05rem .5rem;
+    border-radius: 2rem;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: .7rem;
+    font-weight: bold;
+}
+.meal-add { margin-left: auto; opacity: .7; }
+.meal-list { list-style: none; margin: 0 0 .3rem; padding: 0; }
+.meal-list li {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .2rem 0;
+    border-top: 1px dashed var(--line);
+}
+.meal-slot {
+    flex-shrink: 0;
+    min-width: 2.6rem;
+    text-align: center;
+    padding: .08rem .45rem;
+    border-radius: 2rem;
+    background: var(--bg);
+    font-size: .75rem;
+    font-weight: bold;
+}
+.meal-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.meal-title.linked { cursor: pointer; }
+.meal-del { width: 1.9rem; height: 1.9rem; font-size: .8rem; opacity: .5; }
+
+.popup[data-variant="meal"] {
+    max-width: 26rem;
+    height: auto;
+    max-height: calc(100% - 2rem);
+    border-radius: var(--radius);
+}
+.popup[data-variant="meal"] .popup-content { overflow: visible; }
+.meal-form { display: flex; flex-direction: column; gap: .75rem; }
+.meal-slots span { padding: .45rem .2rem; font-size: .85rem; }
+.meal-name-input {
+    width: 100%;
+    padding: .6rem .75rem;
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+    background: var(--bg);
+    outline: none;
+    font-size: 1rem;
+}
+.meal-name-input:focus { border-color: var(--accent); }
+.meal-suggest .chip { font-size: .8rem; }
+@media (max-width: 768px) {
+    .popup-overlay:has(.popup[data-variant="meal"]) { padding: 1rem; align-items: flex-start; padding-top: 12vh; }
+    .popup[data-variant="meal"] { padding-top: 0; }
+}

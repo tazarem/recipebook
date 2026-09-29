@@ -5,7 +5,7 @@
 class IndexedDBClient {
     db
     DATABASE_NAME = APP_CONFIG.app_alias
-    DATABASE_VERSION = 3 // v2: category 인덱스, v3: shopping(장바구니) 테이블
+    DATABASE_VERSION = 4 // v2: category 인덱스, v3: shopping(장바구니), v4: meal(식단) 테이블
     TABLE_LIST = [
         {
             name: 'recipe',
@@ -50,6 +50,20 @@ class IndexedDBClient {
                 checked: 0,     // 0 | 1
                 created_at: 0,
                 checked_at: 0,
+            }
+        },
+        {
+            name: 'meal',
+            option: { keyPath: 'id', autoIncrement: true },
+            indexes: [
+                { name: 'date', params: 'date', unique: false },
+            ],
+            scheme: {
+                date: '',           // YYYY-MM-DD (기기 현지 날짜)
+                slot: '점심',        // 아침 | 점심 | 저녁 | 간식 | 야식 (meal.js의 MEAL_SLOTS)
+                title: '',          // 요리 이름
+                recipe_id: null,    // 같은 이름의 레시피가 있으면 연결 (없으면 null)
+                created_at: 0,
             }
         },
     ]
@@ -153,6 +167,11 @@ class IndexedDBClient {
             }
             req.onerror = (e) => rej(e.target.error)
         })
+    }
+
+    // 인덱스 값이 lower~upper 사이인 기록 (예: 한 주의 식단)
+    doSelectRange(table_name, index_name, lower, upper) {
+        return this.requestHandler(this.store(table_name).index(index_name).getAll(IDBKeyRange.bound(lower, upper)))
     }
 
     doCountTotal(table_name) {

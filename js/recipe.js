@@ -736,12 +736,14 @@ class RecipeBook {
     async exportBackup() {
         const recipes = await idb.doSelectAll('recipe')
         const shopping = await idb.doSelectAll('shopping')
+        const meals = await idb.doSelectAll('meal')
         const payload = {
             app: APP_CONFIG.app_alias,
             version: APP_CONFIG.app_version,
             exported_at: new Date().toISOString(),
             recipes,
             shopping,
+            meals,
         }
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
         const a = document.createElement('a')
@@ -793,7 +795,33 @@ class RecipeBook {
             count++
         }
         await this.reload()
-        ui.toast(`레시피 ${count}개${shop_count ? `, 장바구니 ${shop_count}개` : ''}를 가져왔어요`)
+        const meal_count = await this.importMeals(payload.meals, replace)
+        const extras = [shop_count && `장바구니 ${shop_count}개`, meal_count && `식단 ${meal_count}개`].filter(Boolean)
+        ui.toast(`레시피 ${count}개${extras.length ? `, ${extras.join(', ')}` : ''}를 가져왔어요`)
+    }
+
+    // 백업의 식단. 레시피 id는 가져오면서 바뀌므로 이름으로 다시 연결합니다.
+    async importMeals(list, replace) {
+        if (!Array.isArray(list)) return 0
+        if (replace) await idb.doTruncate('meal')
+        let count = 0
+        for (const item of list) {
+            const date = String(item?.date ?? '')
+            const title = String(item?.title ?? '').trim().slice(0, 60)
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !title) continue
+            const recipe = this.recipes.find(r => r.title === title)
+            await idb.doInsert('meal', {
+                ...idb.newRecord('meal'),
+                date,
+                slot: MEAL_SLOTS.includes(item.slot) ? item.slot : '점심',
+                title,
+                recipe_id: recipe ? recipe.id : null,
+                created_at: Number(item.created_at) || Date.now(),
+            })
+            count++
+        }
+        if (document.body.dataset.view === 'meals') await meal_plan.render()
+        return count
     }
 
     // 백업의 장바구니 목록. 없거나 형식이 다르면 건너뜁니다.

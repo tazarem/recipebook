@@ -24,18 +24,16 @@
     <script src="./js/tag-input.js"></script>
     <script src="./js/recipe.js"></script>
     <script src="./js/shopping.js"></script>
+    <script src="./js/meal.js"></script>
     <script src="./js/init.js"></script>
 </head>
-<body>
+<body data-view="recipes">
     <header class="top-bar">
         <div class="logo-cover">
             <img class="logo-img" src="./img/icons/favicon-32.png" alt="">
             <div class="logo-text">RecipeBook</div>
         </div>
         <div class="right-position">
-            <button type="button" class="top-bar-btn cart-btn" aria-label="장바구니">
-                <i class="fas fa-shopping-cart"></i><span class="badge"></span>
-            </button>
             <button type="button" class="top-bar-btn search-btn" aria-label="검색"><i class="fas fa-search"></i></button>
             <button type="button" class="top-bar-btn filter-toggle" aria-label="태그 필터">
                 <i class="fas fa-sliders-h"></i><span class="badge"></span>
@@ -79,11 +77,20 @@
         </div>
     </section>
 
-    <main class="main">
+    <!-- 화면: 아래 탭(bottom-nav)으로 전환. body[data-view]에 따라 CSS가 보일 것만 보여줌 -->
+    <main class="main view view-recipes">
         <nav class="category-tabs" role="tablist" aria-label="요리 분류"></nav>
         <div class="result-count"></div>
         <div class="recipe-container box-style"></div>
     </main>
+    <section class="main view view-meals" aria-label="식단"></section>
+    <section class="main view view-shopping" aria-label="장바구니"></section>
+
+    <nav class="bottom-nav" aria-label="화면 전환">
+        <button type="button" data-view="recipes" aria-current="page"><i class="fas fa-book-open"></i><span>레시피</span></button>
+        <button type="button" data-view="meals"><i class="far fa-calendar-alt"></i><span>식단</span></button>
+        <button type="button" data-view="shopping" class="cart-btn"><i class="fas fa-shopping-cart"></i><span>장바구니</span><span class="badge"></span></button>
+    </nav>
 
     <!-- popup -->
     <div class="popup-overlay hide">

@@ -23,11 +23,10 @@ class ShoppingList {
         $('.cart-btn .badge').textContent = this.todo().length || ''
     }
 
-    open() {
-        ui.openPopup({
-            variant: 'shopping',
-            title: `<i class="fas fa-shopping-cart"></i> 장바구니`,
-            content: `
+    // 아래 탭의 '장바구니' 화면을 그립니다.
+    render() {
+        $('.view-shopping').innerHTML = `
+                <h2 class="view-title"><i class="fas fa-shopping-cart"></i> 장바구니</h2>
                 <div class="shopping">
                     <div class="shop-add-row">
                         <input type="text" class="shop-input" placeholder="살 것 입력 (예: 우유, 달걀)" enterkeyhint="done" maxlength="100">
@@ -35,15 +34,14 @@ class ShoppingList {
                     </div>
                     <div class="field-hint">쉼표로 여러 개를 한 번에 넣을 수 있어요. 누르면 체크돼요.</div>
                     <div class="shop-body"></div>
-                </div>`,
-        })
+                </div>`
         this.renderItems()
-        // 목록이 비어 있을 때만 바로 입력 (휴대폰에서 체크하러 들어왔는데 키보드가 뜨지 않게)
-        if (!this.items.length) $('.shop-input').focus()
+        // 넓은 화면에서 목록이 비어 있을 때만 바로 입력 (휴대폰은 탭만 바꿔도 키보드가 튀어나와서 제외)
+        if (!this.items.length && window.matchMedia('(min-width: 769px)').matches) $('.view-shopping .shop-input').focus()
     }
 
     renderItems() {
-        const body = $('.popup-content .shop-body')
+        const body = $('.view-shopping .shop-body')
         if (!body) return
         const todo = this.todo()
         const done = this.done()
@@ -83,7 +81,7 @@ class ShoppingList {
     }
 
     async addFromInput() {
-        const input = $('.popup-content .shop-input')
+        const input = $('.view-shopping .shop-input')
         const texts = input.value.split(',').map(t => t.trim()).filter(Boolean)
         input.value = ''
         input.focus()
