@@ -152,6 +152,40 @@ class RecipeUIHandler {
         })
     }
 
+    // 여러 선택지 중 하나 고르기. 취소·바깥 누르기·Esc는 null.
+    // options: [{ value, label, style: 'primary' | 'danger-ghost' | 'ghost' }] (마지막 것에 포커스)
+    // stack: 버튼 글자가 길 때 위아래로 세워서 (선택지 먼저, 취소는 맨 아래)
+    choose(message, options, { cancel = '취소', stack = false } = {}) {
+        return new Promise((res) => {
+            const overlay = document.createElement('div')
+            overlay.className = 'dialog-overlay'
+            overlay.innerHTML = `
+                <div class="dialog" role="alertdialog" aria-modal="true">
+                    <div class="dialog-message">${esc(message)}</div>
+                    <div class="dialog-btns ${stack ? 'stack' : 'wrap'}">
+                        ${stack ? '' : `<button type="button" class="btn ghost" data-choice="">${esc(cancel)}</button>`}
+                        ${options.map(o => `<button type="button" class="btn ${o.style || 'ghost'}" data-choice="${esc(o.value)}">${esc(o.label)}</button>`).join('')}
+                        ${stack ? `<button type="button" class="btn ghost" data-choice="">${esc(cancel)}</button>` : ''}
+                    </div>
+                </div>`
+            const onKey = (e) => { if (e.key === 'Escape') close(null) }
+            const close = (value) => {
+                document.removeEventListener('keydown', onKey)
+                overlay.remove()
+                res(value || null)
+            }
+            overlay.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-choice]')
+                if (btn) return close(btn.dataset.choice)
+                if (e.target === overlay) close(null)
+            })
+            document.addEventListener('keydown', onKey)
+            document.body.appendChild(overlay)
+            // 추천 선택지에 포커스 (기본: 맨 뒤 선택지, 세로 배치: 맨 위 선택지)
+            overlay.querySelector(stack ? '.dialog-btns button:first-child' : '.dialog-btns button:last-child').focus()
+        })
+    }
+
     // 되돌릴 수 없는 큰 작업용: phrase를 똑같이 입력해야 확인 버튼이 눌립니다.
     confirmTyped(message, phrase, { ok = '삭제', cancel = '취소' } = {}) {
         return new Promise((res) => {

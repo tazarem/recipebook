@@ -765,55 +765,138 @@ class RecipeBook {
         const list = Array.isArray(payload) ? payload : payload.recipes
         if (!Array.isArray(list)) return ui.toast('레시피북 백업 파일이 아니에요')
 
-        const replace = await ui.confirm(
-            `레시피 ${list.length}개를 가져옵니다.\n기존 레시피를 모두 지우고 바꿀까요?\n(취소하면 기존 레시피 뒤에 추가해요)`,
-            { ok: '모두 바꾸기', cancel: '추가하기', danger: true })
-        if (replace) await idb.doTruncate('recipe')
-        const shop_count = await this.importShopping(payload.shopping, replace)
+        const mode = await ui.choose(
+            `백업에 레시피 ${list.length}개가 있어요. (지금 ${this.recipes.length}개)\n\n합치기: 지금 레시피는 그대로 두고 백업 레시피를 더해요.\n모두 바꾸기: 지금 데이터를 지우고 백업으로 바꿔요.`,
+            [
+                { value: 'replace', label: '모두 바꾸기', style: 'danger-ghost' },
+                { value: 'merge', label: '합치기', style: 'primary' },
+            ])
+        if (!mode) return
+        const replace = mode === 'replace'
+        if (replace) {
+            const ok = await ui.confirm(
+                `지금 있는 레시피 ${this.recipes.length}개가 모두 지워지고 백업 내용으로 바뀌어요.\n(백업에 장바구니·식단이 들어 있으면 그것도 바뀌어요)\n계속할까요?`,
+                { ok: '모두 바꾸기', danger: true })
+            if (!ok) return
+            await idb.doTruncate('recipe')
+        }
 
-        const base = idb.newRecord('recipe')
-        let count = 0
+        // 합치기인데 이름이 겹치는 레시피가 있으면: 같은 건 합칠지, 번호 붙여 둘 다 둘지
+        let keep_both = false
+        if (!replace) {
+            const titles = new Set(this.recipes.map(r => r.title))
+            const clashes = [...new Set(list.filter(i => i && titles.has(String(i.title))).map(i => String(i.title)))]
+            if (clashes.length) {
+                const preview = clashes.slice(0, 3).join(', ') + (clashes.length > 3 ? ` 외 ${clashes.length - 3}개` : '')
+                const how = await ui.choose(
+                    `레시피 이름이 같을 경우 어떻게 할까요?\n(${preview})`,
+                    [
+                        { value: 'overwrite', label: '더 최신 버전으로 덮어쓰기', style: 'primary' },
+                        { value: 'rename', label: '이름 바꿔서 저장', style: 'ghost' },
+                    ],
+                    { stack: true })
+                if (!how) return
+                keep_both = how === 'rename'
+            }
+        }
+
+        const result = await this.importRecipes(list, { keep_both })
+        await this.reload()
+        const shop_count = await this.importShopping(payload.shopping, replace)
+        const meal_count = await this.importMeals(payload.meals, replace)
+
+        const parts = [
+            `새로 ${result.added}개`,
+            result.updated && `갱신 ${result.updated}개`,
+            result.skipped && `이미 있음 ${result.skipped}개`,
+        ].filter(Boolean)
+        const extras = [shop_count && `장바구니 ${shop_count}개`, meal_count && `식단 ${meal_count}개`].filter(Boolean)
+        ui.toast(`레시피 ${parts.join(' · ')}${extras.length ? ` / ${extras.join(', ')}` : ''}`)
+    }
+
+    // 백업 레시피를 현재 형식으로 정리 (id는 버리고, 사진·분류·재료는 검증)
+    cleanImportedRecipe(item) {
+        const ingredients = (item.ingredients || [])
+            .map(i => this.normalizeIngredient(i))
+            .filter(i => i.name)
+        const { id, ...rest } = item
+        return {
+            ...idb.newRecord('recipe'),
+            ...rest,
+            title: String(item.title),
+            methods: (item.methods || []).map(String),
+            ingredients,
+            ingredient_names: [...new Set(ingredients.map(i => i.name))],
+            steps: (item.steps || []).map(String),
+            favorite: item.favorite ? 1 : 0,
+            category: this.normalizeCategory(item.category),
+            photo: safePhoto(item.photo),
+            created_at: Number(item.created_at) || Date.now(),
+            updated_at: Number(item.updated_at) || Date.now(),
+        }
+    }
+
+    // 합치기
+    // - 이름이 안 겹치면 추가
+    // - keep_both(이름 바꿔서 저장): 겹치면 '이름 (2)'로 추가
+    // - 아니면(더 최신 버전으로 덮어쓰기): 같은 이름 중 더 최근에 고친 쪽만 남김
+    //   (수정 시각이 없는 옛 백업은 어느 쪽이 최신인지 모르므로 지금 레시피를 남김)
+    async importRecipes(list, { keep_both = false } = {}) {
+        const existing = await idb.doSelectAll('recipe')
+        const taken = new Set(existing.map(r => r.title))
+        const result = { added: 0, updated: 0, skipped: 0 }
         for (const item of list) {
             if (!item || !item.title) continue
-            const ingredients = (item.ingredients || [])
-                .map(i => this.normalizeIngredient(i))
-                .filter(i => i.name)
-            await idb.doInsert('recipe', {
-                ...base,
-                ...item,
-                methods: (item.methods || []).map(String),
-                ingredients,
-                ingredient_names: [...new Set(ingredients.map(i => i.name))],
-                steps: (item.steps || []).map(String),
-                favorite: item.favorite ? 1 : 0,
-                category: this.normalizeCategory(item.category),
-                title: String(item.title),
-                photo: safePhoto(item.photo),
-                created_at: Number(item.created_at) || Date.now(),
-                updated_at: Number(item.updated_at) || Date.now(),
-            })
-            count++
+            const has_updated = Number(item.updated_at) > 0
+            const recipe = this.cleanImportedRecipe(item)
+            const same = keep_both ? null : existing
+                .filter(r => r.title === recipe.title)
+                .sort((a, b) => b.updated_at - a.updated_at)[0]
+            if (!same) {
+                recipe.title = this.uniqueTitle(recipe.title, taken)
+                taken.add(recipe.title)
+                const id = await idb.doInsert('recipe', recipe)
+                existing.push({ ...recipe, id }) // 백업 안에 같은 이름이 또 있어도 한 번만
+                result.added++
+            } else if (has_updated && recipe.updated_at > same.updated_at) {
+                const updated = { ...recipe, id: same.id, created_at: same.created_at }
+                await idb.doUpdate('recipe', same.id, updated)
+                Object.assign(same, updated)
+                result.updated++
+            } else {
+                result.skipped++
+            }
         }
-        await this.reload()
-        const meal_count = await this.importMeals(payload.meals, replace)
-        const extras = [shop_count && `장바구니 ${shop_count}개`, meal_count && `식단 ${meal_count}개`].filter(Boolean)
-        ui.toast(`레시피 ${count}개${extras.length ? `, ${extras.join(', ')}` : ''}를 가져왔어요`)
+        return result
+    }
+
+    // '제육볶음'이 있으면 '제육볶음 (2)', 그것도 있으면 '제육볶음 (3)' …
+    uniqueTitle(title, taken) {
+        if (!taken.has(title)) return title
+        let n = 2
+        while (taken.has(`${title} (${n})`)) n++
+        return `${title} (${n})`
     }
 
     // 백업의 식단. 레시피 id는 가져오면서 바뀌므로 이름으로 다시 연결합니다.
+    // 같은 날·끼니·이름의 식단이 이미 있으면 건너뜁니다.
     async importMeals(list, replace) {
         if (!Array.isArray(list)) return 0
         if (replace) await idb.doTruncate('meal')
+        const existing = new Set((await idb.doSelectAll('meal')).map(m => `${m.date}|${m.slot}|${m.title}`))
         let count = 0
         for (const item of list) {
             const date = String(item?.date ?? '')
             const title = String(item?.title ?? '').trim().slice(0, 60)
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !title) continue
+            const slot = MEAL_SLOTS.includes(item?.slot) ? item.slot : '점심'
+            const key = `${date}|${slot}|${title}`
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !title || existing.has(key)) continue
+            existing.add(key)
             const recipe = this.recipes.find(r => r.title === title)
             await idb.doInsert('meal', {
                 ...idb.newRecord('meal'),
                 date,
-                slot: MEAL_SLOTS.includes(item.slot) ? item.slot : '점심',
+                slot,
                 title,
                 recipe_id: recipe ? recipe.id : null,
                 created_at: Number(item.created_at) || Date.now(),

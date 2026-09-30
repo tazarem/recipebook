@@ -1379,3 +1379,5 @@ body:not([data-view="recipes"]) .lottery-fab {
     .popup-overlay:has(.popup[data-variant="meal"]) { padding: 1rem; align-items: flex-start; padding-top: 12vh; }
     .popup[data-variant="meal"] { padding-top: 0; }
 }
+.dialog-btns.wrap { flex-wrap: wrap; }
+.dialog-btns.stack { flex-direction: column; align-items: stretch; }
