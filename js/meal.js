@@ -5,25 +5,50 @@
 const MEAL_SLOTS = ['아침', '점심', '저녁', '간식', '야식']
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-// 맛 평가 스티커. 그림으로 바꾸려면 img/stickers/<key>.png 를 넣고 config.js의 sticker_images를 true로.
-const STICKERS = [
-    { key: 'yum', emoji: '😋', label: '맛있었당~' },
-    { key: 'good', emoji: '🙂', label: '괜찮았어' },
-    { key: 'soso', emoji: '😐', label: '그냥 그래' },
-    { key: 'bad', emoji: '😖', label: '별로..' },
+// 맛 평가 (3단계, 색 태그로 표시)
+const RATINGS = [
+    { key: 'yum', label: '맛있었당~' },
+    { key: 'ok', label: '나쁘지 않아' },
+    { key: 'bad', label: '별로..' },
 ]
-
-function stickerHtml(key, size = '') {
-    const sticker = STICKERS.find(s => s.key === key)
-    if (!sticker) return ''
-    return APP_CONFIG.sticker_images
-        ? `<img class="sticker ${size}" src="./img/stickers/${sticker.key}.png" alt="${sticker.label}">`
-        : `<span class="sticker emoji ${size}" role="img" aria-label="${sticker.label}">${sticker.emoji}</span>`
+// v0.65의 4단계 평가(good·soso)는 '나쁘지 않아'로
+function normalizeRating(value) {
+    if (value === 'good' || value === 'soso') return 'ok'
+    return RATINGS.some(r => r.key === value) ? value : ''
 }
 
-// 일기를 쓴 식단인지 (스티커·한마디·사진 중 하나라도 있으면)
+function ratingTagHtml(key, size = '') {
+    const rating = RATINGS.find(r => r.key === normalizeRating(key))
+    return rating ? `<span class="rating-tag ${rating.key} ${size}">${rating.label}</span>` : ''
+}
+
+// 꾸미기 스티커 (평가와 상관없이 도장처럼 찍는 것)
+// 그림: img/stickers/sticker_1.png ~ sticker_N.png (N = config.js의 sticker_count), 없으면 기본 이모지
+const DEFAULT_EMOJI_STICKERS = ['🐶', '🐱', '🐰', '🐻', '🐥', '🍚', '🍰', '☕', '💖', '⭐', '🔥', '💤']
+
+function stickerList() {
+    const count = Number(APP_CONFIG.sticker_count) || 0
+    return count > 0 ? Array.from({ length: count }, (_, i) => `sticker_${i + 1}`) : DEFAULT_EMOJI_STICKERS
+}
+
+// 저장된 값이 'sticker_숫자'면 그림, 아니면 이모지 글자로 보여 줍니다.
+// (이모지로 찍어 둔 옛 일기는 그림으로 바꾼 뒤에도 그대로 보임)
+function stickerHtml(value, size = '') {
+    if (!value) return ''
+    return /^sticker_\d+$/.test(value)
+        ? `<img class="sticker ${size}" src="./img/stickers/${value}.png" alt="스티커">`
+        : `<span class="sticker emoji ${size}" role="img" aria-label="스티커">${esc(value)}</span>`
+}
+
+function safeSticker(value) {
+    const v = String(value ?? '')
+    // 'sticker_숫자' 또는 이모지(영문·숫자·기호가 섞이지 않은 짧은 글자)만 허용
+    return /^sticker_\d+$/.test(v) || (v.length > 0 && v.length <= 16 && !/[\x00-\x7F]/.test(v)) ? v : ''
+}
+
+// 일기를 쓴 식단인지 (평가·스티커·한마디·사진 중 하나라도 있으면)
 function hasDiary(meal) {
-    return !!(meal.rating || meal.note || meal.photo)
+    return !!(normalizeRating(meal.rating) || meal.sticker || meal.note || meal.photo)
 }
 
 // 기기 현지 날짜 기준 'YYYY-MM-DD' (toISOString은 UTC라 한국 새벽에 날짜가 밀림)
@@ -81,8 +106,8 @@ class MealPlan {
                 ${meals.length ? `<ul class="meal-list">${meals.map(m => `
                     <li>
                         <span class="meal-slot">${esc(m.slot)}</span>
-                        <span class="meal-title" data-meal-open="${m.id}" role="button" tabindex="0">${esc(m.title)}</span>
-                        ${m.rating ? stickerHtml(m.rating, 'sm') : hasDiary(m) ? `<i class="far fa-comment-dots meal-has-diary" aria-label="일기 있음"></i>` : ''}
+                        <span class="meal-title" data-meal-open="${m.id}" role="button" tabindex="0">${esc(m.title)} ${ratingTagHtml(m.rating, 'sm')}</span>
+                        ${m.sticker ? stickerHtml(m.sticker, 'sm') : (m.note || m.photo) ? `<i class="far fa-comment-dots meal-has-diary" aria-label="일기 있음"></i>` : ''}
                         <button type="button" class="icon-btn meal-del" data-meal-del="${m.id}" aria-label="${esc(m.title)} 삭제"><i class="fas fa-times"></i></button>
                     </li>`).join('')}</ul>` : ''}
             </section>`
@@ -214,7 +239,9 @@ class MealPlan {
         const [y, m, d] = meal.date.split('-').map(Number)
         const weekday = WEEKDAYS[new Date(y, m - 1, d).getDay()]
         const photo = safePhoto(meal.photo)
-        this.diary = { id, rating: meal.rating || '', photo }
+        const rating = normalizeRating(meal.rating)
+        const sticker = meal.sticker || ''
+        this.diary = { id, rating, sticker, photo }
 
         ui.openPopup({
             title: `${m}/${d} (${weekday}) ${esc(meal.slot)}`,
@@ -227,13 +254,25 @@ class MealPlan {
                     </div>
 
                     <div class="diary-pane" data-diary-pane="diary">
-                        <h3 class="diary-food">${esc(meal.title)}</h3>
-                        <div class="sticker-picker" role="radiogroup" aria-label="맛 평가">
-                            ${STICKERS.map(s => `
-                            <button type="button" class="sticker-option ${meal.rating === s.key ? 'on' : ''}" role="radio" aria-checked="${meal.rating === s.key}" data-diary-sticker="${s.key}">
-                                ${stickerHtml(s.key, 'md')}
-                                <span>${s.label}</span>
-                            </button>`).join('')}
+                        <div class="diary-head">
+                            <h3 class="diary-food">${esc(meal.title)}</h3>
+                            <div class="diary-stamp" aria-live="polite">${stickerHtml(sticker, 'lg')}</div>
+                        </div>
+                        <div class="diary-deco">
+                            <div class="diary-rating">
+                                <div class="field-label">맛 평가</div>
+                                <div class="rating-picker" role="radiogroup" aria-label="맛 평가">
+                                    ${RATINGS.map(r => `
+                                    <button type="button" class="rating-tag ${r.key} ${rating === r.key ? 'on' : ''}" role="radio" aria-checked="${rating === r.key}" data-diary-rating="${r.key}">${r.label}</button>`).join('')}
+                                </div>
+                            </div>
+                            <div class="diary-sticker">
+                                <div class="field-label">스티커</div>
+                                <div class="sticker-picker" role="radiogroup" aria-label="꾸미기 스티커">
+                                    ${stickerList().map(v => `
+                                    <button type="button" class="sticker-option ${sticker === v ? 'on' : ''}" role="radio" aria-checked="${sticker === v}" data-diary-sticker="${esc(v)}">${stickerHtml(v, 'sm')}</button>`).join('')}
+                                </div>
+                            </div>
                         </div>
                         <label class="photo-picker ${photo ? 'has-photo' : ''}">
                             <input type="file" accept="image/*" class="diary-photo-input" hidden>
@@ -267,14 +306,29 @@ class MealPlan {
         $('.popup-content').scrollTop = 0
     }
 
-    // 같은 스티커를 다시 누르면 뗌
-    pickSticker(key) {
+    // 같은 평가를 다시 누르면 취소
+    pickRating(key) {
         this.diary.rating = this.diary.rating === key ? '' : key
-        $$('.popup-content .sticker-option').forEach(b => {
-            const on = b.dataset.diarySticker === this.diary.rating
+        $$('.popup-content .rating-picker .rating-tag').forEach(b => {
+            const on = b.dataset.diaryRating === this.diary.rating
             b.classList.toggle('on', on)
             b.setAttribute('aria-checked', on)
         })
+    }
+
+    // 같은 스티커를 다시 누르면 뗌. 고른 스티커는 음식 이름 옆에 도장처럼 크게 찍힘
+    pickSticker(value) {
+        this.diary.sticker = this.diary.sticker === value ? '' : value
+        $$('.popup-content .sticker-option').forEach(b => {
+            const on = b.dataset.diarySticker === this.diary.sticker
+            b.classList.toggle('on', on)
+            b.setAttribute('aria-checked', on)
+        })
+        const stamp = $('.popup-content .diary-stamp')
+        stamp.innerHTML = stickerHtml(this.diary.sticker, 'lg')
+        stamp.classList.remove('stamped')
+        void stamp.offsetWidth // 도장 찍는 애니메이션 재시작
+        if (this.diary.sticker) stamp.classList.add('stamped')
     }
 
     async setDiaryPhoto(file) {
@@ -291,7 +345,7 @@ class MealPlan {
     collectDiary() {
         const note_el = $('.popup-content .diary-note')
         if (!note_el) return null
-        return { rating: this.diary.rating, photo: this.diary.photo || null, note: note_el.value.trim() }
+        return { rating: this.diary.rating, sticker: this.diary.sticker, photo: this.diary.photo || null, note: note_el.value.trim() }
     }
 
     async confirmLeaveDiary() {
@@ -306,13 +360,13 @@ class MealPlan {
         this.diary.snapshot = JSON.stringify(data) // 저장했으니 나가기 확인 없이
         ui.closePopup()
         await this.render()
-        ui.toast(data.rating || data.note || data.photo ? '일기를 저장했어요' : '저장했어요')
+        ui.toast(hasDiary(data) ? '일기를 저장했어요' : '저장했어요')
     }
 
     async clearDiary() {
-        const ok = await ui.confirm('이 식사의 일기(스티커·사진·글)를 지울까요?\n식단에 적은 음식 이름은 남아요.', { ok: '일기 지우기', danger: true })
+        const ok = await ui.confirm('이 식사의 일기(평가·스티커·사진·글)를 지울까요?\n식단에 적은 음식 이름은 남아요.', { ok: '일기 지우기', danger: true })
         if (!ok) return
-        await idb.doUpdatePartial('meal', this.diary.id, { rating: '', note: '', photo: null, diary_at: 0 })
+        await idb.doUpdatePartial('meal', this.diary.id, { rating: '', sticker: '', note: '', photo: null, diary_at: 0 })
         this.diary.snapshot = JSON.stringify(this.collectDiary()) // 나가기 확인 없이 닫히도록
         ui.before_close = null
         ui.closePopup()

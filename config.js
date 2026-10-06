@@ -1,8 +1,8 @@
 const APP_CONFIG = {
-    app_version: `0.65`,
+    app_version: `0.66`,
     app_name: `RecipeBook`,
     app_alias: `recipebook`,
-    // 맛 평가 스티커를 그림 파일로 쓸지 (false면 이모지).
-    // true로 바꾸기 전에 img/stickers/ 에 yum.png, good.png, soso.png, bad.png 를 넣어 주세요.
-    sticker_images: false,
+    // 일기 꾸미기 스티커 그림 개수. img/stickers/sticker_1.png ~ sticker_N.png 을 넣고 N을 적어 주세요.
+    // 0이면 기본 이모지 스티커를 씁니다.
+    sticker_count: 0,
 }

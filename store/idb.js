@@ -65,7 +65,8 @@ class IndexedDBClient {
                 recipe_id: null,    // 같은 이름의 레시피가 있으면 연결 (없으면 null)
                 created_at: 0,
                 // 식사 일기 (먹고 나서 적는 것, 없으면 빈 값)
-                rating: '',         // 맛 평가 스티커: meal.js의 STICKERS key ('' = 안 붙임)
+                rating: '',         // 맛 평가: meal.js의 RATINGS key ('' = 평가 안 함)
+                sticker: '',        // 꾸미기 스티커: 'sticker_3'(그림) 또는 이모지 글자 ('' = 안 붙임)
                 note: '',           // 한마디
                 photo: null,        // dataURL
                 diary_at: 0,        // 일기를 마지막으로 저장한 시각

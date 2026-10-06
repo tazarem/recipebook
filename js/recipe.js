@@ -896,7 +896,8 @@ class RecipeBook {
             if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !title) continue
             const slot = MEAL_SLOTS.includes(item.slot) ? item.slot : '점심'
             const diary = {
-                rating: STICKERS.some(s => s.key === item.rating) ? item.rating : '',
+                rating: normalizeRating(item.rating),
+                sticker: safeSticker(item.sticker),
                 note: String(item.note ?? '').slice(0, 1000),
                 photo: safePhoto(item.photo),
                 diary_at: Number(item.diary_at) || 0,

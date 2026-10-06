@@ -113,6 +113,8 @@ class RecipeBookInit {
             if (e.target.closest('.diary')) {
                 const tab = e.target.closest('[data-diary-tab]')
                 if (tab) return tab.disabled ? null : meal_plan.switchDiaryTab(tab.dataset.diaryTab)
+                const rating = e.target.closest('[data-diary-rating]')
+                if (rating) return meal_plan.pickRating(rating.dataset.diaryRating)
                 const sticker = e.target.closest('[data-diary-sticker]')
                 if (sticker) return meal_plan.pickSticker(sticker.dataset.diarySticker)
                 if (e.target.closest('[data-diary-photo-remove]')) {
@@ -265,6 +267,13 @@ class RecipeBookInit {
         })
     }
 
+    // 스티커 그림 파일이 없거나 못 불러오면 깨진 아이콘 대신 빈칸으로
+    bindStickerFallback() {
+        document.addEventListener('error', (e) => {
+            if (e.target instanceof HTMLImageElement && e.target.classList.contains('sticker')) e.target.classList.add('broken')
+        }, true) // error 이벤트는 위로 전파되지 않아서 capture로 받음
+    }
+
     bindMeals() {
         const view = $('.view-meals')
         view.addEventListener('click', (e) => {
@@ -326,6 +335,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     init_svc.bindLottery()
     init_svc.bindShopping()
     init_svc.bindMeals()
+    init_svc.bindStickerFallback()
     init_svc.bindViews()
     // 넓은 화면에서는 필터 패널을 펼쳐 둡니다.
     if (window.matchMedia('(min-width: 769px)').matches) {
