@@ -109,6 +109,20 @@ class RecipeBookInit {
                 return
             }
 
+            // 식사 일기 창 (레시피 편집기의 사진 버튼과 겹치지 않게 먼저 처리)
+            if (e.target.closest('.diary')) {
+                const tab = e.target.closest('[data-diary-tab]')
+                if (tab) return tab.disabled ? null : meal_plan.switchDiaryTab(tab.dataset.diaryTab)
+                const sticker = e.target.closest('[data-diary-sticker]')
+                if (sticker) return meal_plan.pickSticker(sticker.dataset.diarySticker)
+                if (e.target.closest('[data-diary-photo-remove]')) {
+                    e.preventDefault()
+                    return meal_plan.setDiaryPhoto(null)
+                }
+                if (e.target.closest('[data-diary-save]')) return meal_plan.saveDiary()
+                if (e.target.closest('[data-diary-clear]')) return meal_plan.clearDiary()
+            }
+
             const action = e.target.closest('[data-action]')
             if (action) {
                 const id = Number(action.dataset.id)
@@ -125,6 +139,7 @@ class RecipeBookInit {
                         // 상세에서 태그를 누르면 그 태그로 목록 필터
                         ui.hidePopup()
                         history.back()
+                        this.switchView('recipes') // 식단 일기의 레시피 탭에서 눌렀을 수도 있음
                         recipe_book.filter[action.dataset.kind].add(action.dataset.tag)
                         $('.filter-panel').classList.remove('collapse-y')
                         $('.filter-toggle').classList.add('active')
@@ -168,15 +183,19 @@ class RecipeBookInit {
 
         // 만드는 방법·팁 칸은 쓰는 만큼 늘어나고 지우면 줄어듭니다.
         popup.addEventListener('input', (e) => {
-            if (e.target.matches('.editor textarea')) autoGrow(e.target)
+            if (e.target.matches('.editor textarea, .diary-note')) autoGrow(e.target)
             if (e.target.matches('.meal-name-input')) meal_plan.renderSuggest()
         })
         // 화면 폭이 바뀌면(가로 회전 등) 줄바꿈이 달라지니 다시 맞춤
-        window.addEventListener('resize', () => $$('.popup-content .editor textarea').forEach(autoGrow))
+        window.addEventListener('resize', () => $$('.popup-content .editor textarea, .popup-content .diary-note').forEach(autoGrow))
 
         popup.addEventListener('change', (e) => {
             // 식단 추가: 끼니를 고르면 바로 이름을 적을 수 있게
             if (e.target.name === 'meal_slot') return $('.popup-content .meal-name-input')?.focus()
+            if (e.target.matches('.diary-photo-input') && e.target.files[0]) {
+                meal_plan.setDiaryPhoto(e.target.files[0])
+                e.target.value = ''
+            }
             if (e.target.matches('.photo-input') && e.target.files[0]) {
                 recipe_book.setPhoto(e.target.files[0])
                 e.target.value = ''
@@ -253,16 +272,17 @@ class RecipeBookInit {
             if (week) return meal_plan.moveWeek(Number(week.dataset.mealWeek))
             const add = e.target.closest('[data-meal-add]')
             if (add) return meal_plan.openAdd(add.dataset.mealAdd)
+            if (e.target.closest('[data-meal-clear-old]')) return meal_plan.clearOld()
             const del = e.target.closest('[data-meal-del]')
             if (del) return meal_plan.remove(Number(del.dataset.mealDel))
-            const recipe = e.target.closest('[data-meal-recipe]')
-            if (recipe) return meal_plan.openRecipe(Number(recipe.dataset.mealRecipe))
+            const open = e.target.closest('[data-meal-open]')
+            if (open) return meal_plan.openDiary(Number(open.dataset.mealOpen))
         })
         view.addEventListener('keydown', (e) => {
-            const recipe = e.target.closest('[data-meal-recipe]')
-            if (recipe && (e.key === 'Enter' || e.key === ' ')) {
+            const open = e.target.closest('[data-meal-open]')
+            if (open && (e.key === 'Enter' || e.key === ' ')) {
                 e.preventDefault()
-                meal_plan.openRecipe(Number(recipe.dataset.mealRecipe))
+                meal_plan.openDiary(Number(open.dataset.mealOpen))
             }
         })
     }

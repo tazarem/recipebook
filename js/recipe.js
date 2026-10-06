@@ -332,6 +332,11 @@ class RecipeBook {
             <button type="button" class="icon-btn" data-action="edit" data-id="${r.id}" aria-label="편집"><i class="fas fa-pen"></i></button>
             <button type="button" class="icon-btn" data-action="delete" data-id="${r.id}" aria-label="삭제"><i class="far fa-trash-alt"></i></button>`
 
+        ui.openPopup({ title: esc(r.title), actions, content: this.detailContent(r) })
+    }
+
+    // 레시피 상세 본문 (상세 팝업, 식단 일기의 '레시피 보기' 탭에서 같이 씀)
+    detailContent(r) {
         const required = r.ingredients.filter(i => !i.optional)
         const optional = r.ingredients.filter(i => i.optional)
         const ingredientList = (list) => `
@@ -395,7 +400,7 @@ class RecipeBook {
                 <div class="detail-date">작성 ${this.formatDate(r.created_at)}${r.updated_at !== r.created_at ? ` · 수정 ${this.formatDate(r.updated_at)}` : ''}</div>
             </div>`
 
-        ui.openPopup({ title: esc(r.title), actions, content })
+        return content
     }
 
     formatDate(ts) {
@@ -878,29 +883,46 @@ class RecipeBook {
         return `${title} (${n})`
     }
 
-    // 백업의 식단. 레시피 id는 가져오면서 바뀌므로 이름으로 다시 연결합니다.
-    // 같은 날·끼니·이름의 식단이 이미 있으면 건너뜁니다.
+    // 백업의 식단(일기 포함). 레시피 id는 가져오면서 바뀌므로 이름으로 다시 연결합니다.
+    // 같은 날·끼니·이름의 식단이 이미 있으면 건너뛰되, 지금 쪽에 일기가 없고 백업에 있으면 일기만 채웁니다.
     async importMeals(list, replace) {
         if (!Array.isArray(list)) return 0
         if (replace) await idb.doTruncate('meal')
-        const existing = new Set((await idb.doSelectAll('meal')).map(m => `${m.date}|${m.slot}|${m.title}`))
+        const existing = new Map((await idb.doSelectAll('meal')).map(m => [`${m.date}|${m.slot}|${m.title}`, m]))
         let count = 0
         for (const item of list) {
             const date = String(item?.date ?? '')
             const title = String(item?.title ?? '').trim().slice(0, 60)
-            const slot = MEAL_SLOTS.includes(item?.slot) ? item.slot : '점심'
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !title) continue
+            const slot = MEAL_SLOTS.includes(item.slot) ? item.slot : '점심'
+            const diary = {
+                rating: STICKERS.some(s => s.key === item.rating) ? item.rating : '',
+                note: String(item.note ?? '').slice(0, 1000),
+                photo: safePhoto(item.photo),
+                diary_at: Number(item.diary_at) || 0,
+            }
             const key = `${date}|${slot}|${title}`
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !title || existing.has(key)) continue
-            existing.add(key)
+            const same = existing.get(key)
+            if (same) {
+                if (!hasDiary(same) && hasDiary(diary)) {
+                    await idb.doUpdatePartial('meal', same.id, diary)
+                    Object.assign(same, diary)
+                    count++
+                }
+                continue
+            }
             const recipe = this.recipes.find(r => r.title === title)
-            await idb.doInsert('meal', {
+            const meal = {
                 ...idb.newRecord('meal'),
                 date,
                 slot,
                 title,
                 recipe_id: recipe ? recipe.id : null,
                 created_at: Number(item.created_at) || Date.now(),
-            })
+                ...diary,
+            }
+            const id = await idb.doInsert('meal', meal)
+            existing.set(key, { ...meal, id })
             count++
         }
         if (document.body.dataset.view === 'meals') await meal_plan.render()

@@ -5,6 +5,27 @@
 const MEAL_SLOTS = ['아침', '점심', '저녁', '간식', '야식']
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
+// 맛 평가 스티커. 그림으로 바꾸려면 img/stickers/<key>.png 를 넣고 config.js의 sticker_images를 true로.
+const STICKERS = [
+    { key: 'yum', emoji: '😋', label: '맛있었당~' },
+    { key: 'good', emoji: '🙂', label: '괜찮았어' },
+    { key: 'soso', emoji: '😐', label: '그냥 그래' },
+    { key: 'bad', emoji: '😖', label: '별로..' },
+]
+
+function stickerHtml(key, size = '') {
+    const sticker = STICKERS.find(s => s.key === key)
+    if (!sticker) return ''
+    return APP_CONFIG.sticker_images
+        ? `<img class="sticker ${size}" src="./img/stickers/${sticker.key}.png" alt="${sticker.label}">`
+        : `<span class="sticker emoji ${size}" role="img" aria-label="${sticker.label}">${sticker.emoji}</span>`
+}
+
+// 일기를 쓴 식단인지 (스티커·한마디·사진 중 하나라도 있으면)
+function hasDiary(meal) {
+    return !!(meal.rating || meal.note || meal.photo)
+}
+
 // 기기 현지 날짜 기준 'YYYY-MM-DD' (toISOString은 UTC라 한국 새벽에 날짜가 밀림)
 function dateKey(date) {
     const p = n => String(n).padStart(2, '0')
@@ -38,6 +59,7 @@ class MealPlan {
 
     async render() {
         await this.load()
+        const { meals: old_meals } = await this.oldMeals()
         const today = dateKey(new Date())
         const days = this.weekDays()
         const is_this_week = dateKey(this.week_start) === dateKey(mondayOf(new Date()))
@@ -59,7 +81,8 @@ class MealPlan {
                 ${meals.length ? `<ul class="meal-list">${meals.map(m => `
                     <li>
                         <span class="meal-slot">${esc(m.slot)}</span>
-                        <span class="meal-title ${m.recipe_id ? 'linked' : ''}" ${m.recipe_id ? `data-meal-recipe="${m.recipe_id}" role="button" tabindex="0"` : ''}>${esc(m.title)}</span>
+                        <span class="meal-title" data-meal-open="${m.id}" role="button" tabindex="0">${esc(m.title)}</span>
+                        ${m.rating ? stickerHtml(m.rating, 'sm') : hasDiary(m) ? `<i class="far fa-comment-dots meal-has-diary" aria-label="일기 있음"></i>` : ''}
                         <button type="button" class="icon-btn meal-del" data-meal-del="${m.id}" aria-label="${esc(m.title)} 삭제"><i class="fas fa-times"></i></button>
                     </li>`).join('')}</ul>` : ''}
             </section>`
@@ -72,7 +95,31 @@ class MealPlan {
                 <button type="button" class="icon-btn" data-meal-week="1" aria-label="다음주"><i class="fas fa-chevron-right"></i></button>
                 <button type="button" class="text-btn meal-this-week ${is_this_week ? 'hide' : ''}" data-meal-week="0">이번 주</button>
             </div>
-            <div class="meal-days">${day_cards}</div>`
+            <div class="meal-days">${day_cards}</div>
+            ${old_meals.length ? `
+            <div class="meal-clear">
+                <button type="button" class="text-btn" data-meal-clear-old><i class="far fa-trash-alt"></i> 3주 전 식단 비우기 (${old_meals.length}개)</button>
+            </div>` : ''}`
+    }
+
+    // 3주 전 주와 그 이전의 식단 (이번 주·지난주·2주 전은 남김)
+    async oldMeals() {
+        const keep_from = addDays(mondayOf(new Date()), -14) // 2주 전 월요일부터는 남김
+        const until = addDays(keep_from, -1)                 // 그 전날(3주 전 일요일)까지 지움
+        const all = await idb.doSelectRange('meal', 'date', '', dateKey(until))
+        return { meals: all.filter(m => !hasDiary(m)), until } // 일기를 쓴 식단은 남김
+    }
+
+    async clearOld() {
+        const { meals, until } = await this.oldMeals()
+        if (!meals.length) return ui.toast('지울 3주 전 식단이 없어요')
+        const ok = await ui.confirm(
+            `${until.getMonth() + 1}월 ${until.getDate()}일까지의 식단 ${meals.length}개를 지울까요?\n이번 주와 지난 2주의 식단, 일기를 쓴 식단은 그대로 남아요. 지우면 되돌릴 수 없어요.`,
+            { ok: '비우기', danger: true })
+        if (!ok) return
+        for (const meal of meals) await idb.doDelete('meal', meal.id)
+        await this.render()
+        ui.toast(`3주 전 식단 ${meals.length}개를 지웠어요`)
     }
 
     moveWeek(step) {
@@ -149,14 +196,128 @@ class MealPlan {
     }
 
     async remove(id) {
+        const meal = await idb.doSelectOne('meal', id)
+        if (meal && hasDiary(meal)) {
+            const ok = await ui.confirm(`'${meal.title}'에 쓴 일기도 같이 지워져요.\n지울까요?`, { ok: '지우기', danger: true })
+            if (!ok) return
+        }
         await idb.doDelete('meal', id)
         await this.render()
     }
 
-    async openRecipe(recipe_id) {
-        const recipe = await idb.doSelectOne('recipe', recipe_id)
-        if (!recipe) return ui.toast('연결된 레시피가 지워졌어요')
-        recipe_book.renderDetail(recipe_id)
+    /* ---------- 식사 일기 ---------- */
+    // 식단의 음식을 누르면: [식사 일기] [레시피 보기] 탭이 있는 창
+    async openDiary(id) {
+        const meal = await idb.doSelectOne('meal', id)
+        if (!meal) return
+        const recipe = meal.recipe_id ? await idb.doSelectOne('recipe', meal.recipe_id) : null
+        const [y, m, d] = meal.date.split('-').map(Number)
+        const weekday = WEEKDAYS[new Date(y, m - 1, d).getDay()]
+        const photo = safePhoto(meal.photo)
+        this.diary = { id, rating: meal.rating || '', photo }
+
+        ui.openPopup({
+            title: `${m}/${d} (${weekday}) ${esc(meal.slot)}`,
+            before_close: () => this.confirmLeaveDiary(),
+            content: `
+                <div class="diary">
+                    <div class="diary-tabs" role="tablist">
+                        <button type="button" class="diary-tab on" role="tab" aria-selected="true" data-diary-tab="diary"><i class="fas fa-pen"></i> 식사 일기</button>
+                        <button type="button" class="diary-tab" role="tab" aria-selected="false" data-diary-tab="recipe" ${recipe ? '' : 'disabled title="연결된 레시피가 없어요"'}><i class="fas fa-book-open"></i> 레시피 보기</button>
+                    </div>
+
+                    <div class="diary-pane" data-diary-pane="diary">
+                        <h3 class="diary-food">${esc(meal.title)}</h3>
+                        <div class="sticker-picker" role="radiogroup" aria-label="맛 평가">
+                            ${STICKERS.map(s => `
+                            <button type="button" class="sticker-option ${meal.rating === s.key ? 'on' : ''}" role="radio" aria-checked="${meal.rating === s.key}" data-diary-sticker="${s.key}">
+                                ${stickerHtml(s.key, 'md')}
+                                <span>${s.label}</span>
+                            </button>`).join('')}
+                        </div>
+                        <label class="photo-picker ${photo ? 'has-photo' : ''}">
+                            <input type="file" accept="image/*" class="diary-photo-input" hidden>
+                            <img class="photo-preview" src="${esc(photo || '')}" alt="">
+                            <span class="photo-empty"><i class="fas fa-camera"></i> 사진 한 장 (선택)</span>
+                            <button type="button" class="icon-btn solid photo-remove" data-diary-photo-remove aria-label="사진 삭제"><i class="fas fa-times"></i></button>
+                        </label>
+                        <textarea class="diary-note" rows="3" maxlength="1000" placeholder="오늘 뭐 먹었나요? 어땠나요?">${esc(meal.note || '')}</textarea>
+                        <div class="diary-btns">
+                            ${hasDiary(meal) ? `<button type="button" class="text-btn" data-diary-clear><i class="far fa-trash-alt"></i> 일기 지우기</button>` : ''}
+                            <button type="button" class="btn primary" data-diary-save><i class="fas fa-check"></i> 저장</button>
+                        </div>
+                    </div>
+
+                    <div class="diary-pane hide" data-diary-pane="recipe">
+                        ${recipe ? `<h3 class="diary-food">${esc(recipe.title)}</h3>${recipe_book.detailContent(recipe)}` : ''}
+                    </div>
+                </div>`,
+        })
+        autoGrow($('.popup-content .diary-note'))
+        this.diary.snapshot = JSON.stringify(this.collectDiary())
+    }
+
+    switchDiaryTab(tab) {
+        $$('.popup-content .diary-tab').forEach(b => {
+            const on = b.dataset.diaryTab === tab
+            b.classList.toggle('on', on)
+            b.setAttribute('aria-selected', on)
+        })
+        $$('.popup-content .diary-pane').forEach(p => p.classList.toggle('hide', p.dataset.diaryPane !== tab))
+        $('.popup-content').scrollTop = 0
+    }
+
+    // 같은 스티커를 다시 누르면 뗌
+    pickSticker(key) {
+        this.diary.rating = this.diary.rating === key ? '' : key
+        $$('.popup-content .sticker-option').forEach(b => {
+            const on = b.dataset.diarySticker === this.diary.rating
+            b.classList.toggle('on', on)
+            b.setAttribute('aria-checked', on)
+        })
+    }
+
+    async setDiaryPhoto(file) {
+        try {
+            this.diary.photo = file ? await recipe_book.resizePhoto(file) : null
+        } catch (e) {
+            return ui.toast('사진을 불러오지 못했어요')
+        }
+        const picker = $('.popup-content .diary .photo-picker')
+        picker.classList.toggle('has-photo', !!this.diary.photo)
+        $('.photo-preview', picker).src = this.diary.photo || ''
+    }
+
+    collectDiary() {
+        const note_el = $('.popup-content .diary-note')
+        if (!note_el) return null
+        return { rating: this.diary.rating, photo: this.diary.photo || null, note: note_el.value.trim() }
+    }
+
+    async confirmLeaveDiary() {
+        const now = this.collectDiary()
+        if (!now || JSON.stringify(now) === this.diary.snapshot) return true
+        return ui.confirm('쓰던 일기가 저장되지 않아요. 나갈까요?', { ok: '나가기', danger: true })
+    }
+
+    async saveDiary() {
+        const data = this.collectDiary()
+        await idb.doUpdatePartial('meal', this.diary.id, { ...data, diary_at: Date.now() })
+        this.diary.snapshot = JSON.stringify(data) // 저장했으니 나가기 확인 없이
+        ui.closePopup()
+        await this.render()
+        ui.toast(data.rating || data.note || data.photo ? '일기를 저장했어요' : '저장했어요')
+    }
+
+    async clearDiary() {
+        const ok = await ui.confirm('이 식사의 일기(스티커·사진·글)를 지울까요?\n식단에 적은 음식 이름은 남아요.', { ok: '일기 지우기', danger: true })
+        if (!ok) return
+        await idb.doUpdatePartial('meal', this.diary.id, { rating: '', note: '', photo: null, diary_at: 0 })
+        this.diary.snapshot = JSON.stringify(this.collectDiary()) // 나가기 확인 없이 닫히도록
+        ui.before_close = null
+        ui.closePopup()
+        await this.render()
+        ui.toast('일기를 지웠어요')
     }
 }
 
