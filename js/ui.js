@@ -56,13 +56,32 @@ class RecipeUIHandler {
     popup_open = false
     drawer = false
     before_close = null // 닫기 전에 확인할 함수 (편집 중 이탈 방지). false를 반환하면 닫지 않음
+    own_backs = 0       // 우리가 직접 보낸 history.back() 중 아직 도착하지 않은 개수
+    drawer_entry = false // 지금 열린 메뉴의 뒤로가기 기록이 실제로 쌓여 있는지
+    popup_entry = false  // 지금 열린 팝업의 뒤로가기 기록이 실제로 쌓여 있는지
+    sheet = null         // 아래에서 올라오는 선택창: { el, resolve, result, entry }
 
     constructor() {
         // 안드로이드 뒤로가기 / 브라우저 뒤로가기로 팝업, 메뉴를 닫습니다.
         window.addEventListener('popstate', async () => {
+            // 우리가 직접 보낸 뒤로가기는 건너뜀 (늦게 도착해서 그새 다시 연 메뉴를 닫아 버리지 않게).
+            // 그 사이에 메뉴를 다시 열었다면, 미뤄 둔 기록을 이제 쌓음 → 기록과 메뉴 상태가 어긋나지 않음
+            if (this.own_backs > 0) {
+                this.own_backs--
+                if (this.own_backs === 0) this.pushDeferredEntries()
+                return
+            }
+            // 맨 위에 떠 있는 것부터 닫음: 선택창 → 팝업 → 메뉴
+            if (this.sheet) {
+                this.sheet.entry = false
+                this.hideSheet(null)
+                return
+            }
             if (this.popup_open) {
+                this.popup_entry = false
                 if (this.before_close && !(await this.before_close())) {
                     history.pushState({ layer: 'popup' }, '')
+                    this.popup_entry = true
                     return
                 }
                 this.hidePopup()
@@ -85,20 +104,86 @@ class RecipeUIHandler {
 
         if (!this.popup_open) {
             this.popup_open = true
-            history.pushState({ layer: 'popup' }, '')
+            this.popup_entry = false
+            this.pushDeferredEntries()
             $('.popup-overlay').classList.remove('hide')
             document.body.classList.add('no-scroll')
         }
     }
 
     // 닫기 버튼 → history.back() → popstate에서 실제로 닫힘
-    closePopup() {
-        if (this.popup_open) history.back()
+    async closePopup() {
+        if (!this.popup_open) return
+        if (this.popup_entry) return history.back()
+        // 기록이 아직 안 쌓인 드문 경우(직전 뒤로가기가 도착하기 전): 바로 닫음
+        if (this.before_close && !(await this.before_close())) return
+        this.hidePopup()
+    }
+
+    // 열려 있는데 뒤로가기 기록이 아직 없는 것들의 기록을 쌓습니다. (아래에 깔린 것부터: 메뉴 → 팝업 → 선택창)
+    // 우리가 보낸 뒤로가기가 아직 도착하지 않았으면 도착한 뒤(popstate)로 미룹니다.
+    // → 빠르게 닫았다 열어도 기록과 화면 상태가 어긋나지 않음
+    pushDeferredEntries() {
+        if (this.own_backs > 0) return
+        if (this.drawer && !this.drawer_entry) {
+            history.pushState({ layer: 'drawer' }, '')
+            this.drawer_entry = true
+        }
+        if (this.popup_open && !this.popup_entry) {
+            history.pushState({ layer: 'popup' }, '')
+            this.popup_entry = true
+        }
+        if (this.sheet && !this.sheet.entry) {
+            history.pushState({ layer: 'sheet' }, '')
+            this.sheet.entry = true
+        }
+    }
+
+    /* ---------- 아래에서 올라오는 선택창 ---------- */
+    // content 안의 [data-sheet-value]를 누르면 그 값으로 닫힙니다. 바깥·Esc·뒤로가기는 null(취소).
+    openSheet({ title = '', content = '' }) {
+        if (this.sheet) this.closeSheet(null)
+        return new Promise((resolve) => {
+            const el = document.createElement('div')
+            el.className = 'sheet-overlay'
+            el.innerHTML = `
+                <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+                    <div class="sheet-handle" aria-hidden="true"></div>
+                    <div class="sheet-title">${esc(title)}</div>
+                    <div class="sheet-content">${content}</div>
+                </div>`
+            el.addEventListener('click', (e) => {
+                const pick = e.target.closest('[data-sheet-value]')
+                if (pick) return this.closeSheet(pick.dataset.sheetValue)
+                if (e.target === el) this.closeSheet(null)
+            })
+            document.body.appendChild(el)
+            void el.offsetWidth // 올라오는 애니메이션 시작점 확정
+            el.classList.add('open')
+            this.sheet = { el, resolve, result: null, entry: false }
+            this.pushDeferredEntries()
+        })
+    }
+
+    closeSheet(value) {
+        if (!this.sheet) return
+        const had_entry = this.sheet.entry
+        this.hideSheet(value)
+        if (had_entry) this.silentBack()
+    }
+
+    hideSheet(value) {
+        const { el, resolve } = this.sheet
+        this.sheet = null
+        el.classList.remove('open')
+        setTimeout(() => el.remove(), 300) // 내려가는 애니메이션 뒤에 제거
+        resolve(value)
     }
 
     hidePopup() {
         this.popup_open = false
         this.before_close = null
+        this.popup_entry = false
         $('.popup-overlay').classList.add('hide')
         $('.popup-content').innerHTML = ''
         $('.popup').dataset.variant = ''
@@ -114,9 +199,22 @@ class RecipeUIHandler {
         this.drawer = open
         $('.menu-overlay').classList.toggle('collapse-x', !open)
         $('.menu-btn').classList.toggle('active', open)
-        if (from_history) return
-        if (open) history.pushState({ layer: 'drawer' }, '')
-        else history.back()
+        if (from_history) { // 사용자가 누른 뒤로가기로 닫힘: 기록은 이미 빠졌음
+            this.drawer_entry = false
+            return
+        }
+        if (open) {
+            this.pushDeferredEntries()
+        } else if (this.drawer_entry) {
+            this.drawer_entry = false
+            this.silentBack()
+        }
+    }
+
+    // 화면은 이미 정리했고 기록만 한 칸 되돌릴 때 (popstate에서 다시 처리하지 않도록 표시)
+    silentBack() {
+        this.own_backs++
+        history.back()
     }
 
     toast(message) {

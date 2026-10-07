@@ -94,7 +94,9 @@ class RecipeBookInit {
             if (e.target === e.currentTarget) ui.closePopup()
         })
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && ui.popup_open && !$('.dialog-overlay')) ui.closePopup()
+            if (e.key !== 'Escape' || $('.dialog-overlay')) return
+            if (ui.sheet) return ui.closeSheet(null) // 선택창이 떠 있으면 그것부터
+            if (ui.popup_open) ui.closePopup()
         })
 
         const popup = $('.popup')
@@ -113,10 +115,9 @@ class RecipeBookInit {
             if (e.target.closest('.diary')) {
                 const tab = e.target.closest('[data-diary-tab]')
                 if (tab) return tab.disabled ? null : meal_plan.switchDiaryTab(tab.dataset.diaryTab)
-                const rating = e.target.closest('[data-diary-rating]')
-                if (rating) return meal_plan.pickRating(rating.dataset.diaryRating)
-                const sticker = e.target.closest('[data-diary-sticker]')
-                if (sticker) return meal_plan.pickSticker(sticker.dataset.diarySticker)
+                const pick = e.target.closest('[data-diary-pick]')
+                if (pick) return meal_plan.pickDiaryMark(pick.dataset.diaryPick)
+                if (e.target.closest('[data-diary-cancel]')) return meal_plan.cancelDiaryEdit()
                 if (e.target.closest('[data-diary-photo-remove]')) {
                     e.preventDefault()
                     return meal_plan.setDiaryPhoto(null)
@@ -137,10 +138,12 @@ class RecipeBookInit {
                     case 'lottery-open': return recipe_book.renderDetail(id)
                     case 'meal-save': return meal_plan.save()
                     case 'meal-cancel': return ui.closePopup()
+                    case 'diary-edit': return meal_plan.renderDiary('edit')
                     case 'goto-tag': {
                         // 상세에서 태그를 누르면 그 태그로 목록 필터
+                        const had_entry = ui.popup_entry
                         ui.hidePopup()
-                        history.back()
+                        if (had_entry) ui.silentBack()
                         this.switchView('recipes') // 식단 일기의 레시피 탭에서 눌렀을 수도 있음
                         recipe_book.filter[action.dataset.kind].add(action.dataset.tag)
                         $('.filter-panel').classList.remove('collapse-y')
