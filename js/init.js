@@ -135,6 +135,8 @@ class RecipeBookInit {
             if (e.target.closest('.diary')) {
                 const tab = e.target.closest('[data-diary-tab]')
                 if (tab) return tab.disabled ? null : meal_plan.switchDiaryTab(tab.dataset.diaryTab)
+                const pop = e.target.closest('[data-diary-pop]')
+                if (pop) return meal_plan.popSticker(pop)
                 const pick = e.target.closest('[data-diary-pick]')
                 if (pick) return meal_plan.pickDiaryMark(pick.dataset.diaryPick)
                 if (e.target.closest('[data-diary-cancel]')) return meal_plan.cancelDiaryEdit()

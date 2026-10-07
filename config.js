@@ -1,5 +1,5 @@
 const APP_CONFIG = {
-    app_version: `0.69`,
+    app_version: `0.70`,
     app_name: `RecipeBook`,
     app_alias: `recipebook`,
     // 일기 꾸미기 스티커 그림 개수. img/stickers/sticker_1.png ~ sticker_N.png 을 넣고 N을 적어 주세요.

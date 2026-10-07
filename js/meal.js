@@ -35,6 +35,7 @@ function stickerList() {
 // (이모지로 찍어 둔 옛 일기는 그림으로 바꾼 뒤에도 그대로 보임)
 // tilted: true면 네 가지 기울기 중 하나를 그릴 때마다 무작위로 (저장하지 않음, 각도는 css의 .tilt-N)
 const STICKER_TILT_COUNT = 4
+const STICKER_TILT_DEGREES = [-12, -5, 6, 12] // css의 .tilt-0 ~ .tilt-3 과 같은 값
 function stickerHtml(value, size = '', tilted = false) {
     if (!value) return ''
     const tilt_class = tilted ? `tilt-${Math.floor(Math.random() * STICKER_TILT_COUNT)}` : ''
@@ -285,7 +286,7 @@ class MealPlan {
             ${rating || meal.sticker ? `
             <div class="diary-marks">
                 ${ratingTagHtml(rating)}
-                ${stickerHtml(meal.sticker, 'lg', true)}
+                ${meal.sticker ? `<button type="button" class="sticker-pop" data-diary-pop aria-label="스티커 흔들기">${stickerHtml(meal.sticker, 'lg', true)}</button>` : ''}
             </div>` : ''}
             ${photo ? `<img class="detail-photo" src="${esc(photo)}" alt="">` : ''}
             ${meal.note ? `<p class="detail-tips">${linkify(meal.note)}</p>` : ''}`
@@ -364,6 +365,54 @@ class MealPlan {
             draft.sticker = safeSticker(value)
         }
         this.renderDiarySlots()
+    }
+
+    // 조회 화면의 스티커를 누르면: 좌우로 흔들리고, 작게 줄인 스티커 조각들이 톡 튀었다가 후두둑 떨어짐
+    popSticker(button) {
+        const sticker = $('.sticker', button)
+        if (!sticker) return
+        const tilt_index = Number(([...sticker.classList].find(c => c.startsWith('tilt-')) || 'tilt-0').slice(5))
+        const base = STICKER_TILT_DEGREES[tilt_index] ?? 0
+
+        // 흔들기 (원래 기울기를 중심으로)
+        sticker.animate(
+            [0, -18, 15, -11, 7, -3, 0].map((d, i, arr) => ({
+                transform: `rotate(${base + d}deg) scale(${i === 0 || i === arr.length - 1 ? 1 : 1.18})`,
+            })),
+            { duration: 600, easing: 'ease-out' })
+
+        // 조각들: 화면에 고정된 층에 그려서 창 안에서 잘리지 않게
+        const rect = sticker.getBoundingClientRect()
+        const layer = document.createElement('div')
+        layer.className = 'sticker-particles'
+        layer.style.left = `${rect.left + rect.width / 2}px`
+        layer.style.top = `${rect.top + rect.height / 2}px`
+        document.body.appendChild(layer)
+
+        const COUNT = 12
+        let longest = 0
+        for (let i = 0; i < COUNT; i++) {
+            const piece = sticker.cloneNode(true)
+            piece.className = `sticker particle ${sticker.classList.contains('emoji') ? 'emoji' : ''}`
+            piece.removeAttribute('role')
+            piece.setAttribute('aria-hidden', 'true')
+            layer.appendChild(piece)
+
+            const side = Math.random() < .5 ? -1 : 1
+            const spread = 20 + Math.random() * 95          // 좌우로 퍼지는 거리
+            const up = 35 + Math.random() * 70               // 톡 튀어 오르는 높이
+            const fall = 170 + Math.random() * 190           // 떨어지는 깊이
+            const spin = (Math.random() * 540 - 270)
+            const duration = 800 + Math.random() * 500
+            const delay = Math.random() * 90
+            longest = Math.max(longest, duration + delay)
+            piece.animate([
+                { transform: 'translate(-50%, -50%) scale(.3)', opacity: 1, easing: 'cubic-bezier(.2, .7, .4, 1)' },
+                { transform: `translate(calc(-50% + ${side * spread * .55}px), calc(-50% - ${up}px)) rotate(${spin * .35}deg) scale(1)`, opacity: 1, offset: .28, easing: 'cubic-bezier(.5, 0, .9, .6)' },
+                { transform: `translate(calc(-50% + ${side * spread}px), calc(-50% + ${fall}px)) rotate(${spin}deg) scale(.9)`, opacity: 0 },
+            ], { duration, delay, fill: 'both' })
+        }
+        setTimeout(() => layer.remove(), longest + 100)
     }
 
     switchDiaryTab(tab) {
