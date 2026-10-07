@@ -2,8 +2,8 @@
     class RecipeBookWebCache {
         constructor() {
             // 앱 파일을 바꾸면 버전을 올려야 사용자 기기의 캐시가 갱신됩니다.
-            this.STATIC_CACHE_NAME = 'recipebook_static_v0.68'
-            this.DYNAMIC_CACHE_NAME = 'recipebook_dynamic_v0.68'
+            this.STATIC_CACHE_NAME = 'recipebook_static_v0.69'
+            this.DYNAMIC_CACHE_NAME = 'recipebook_dynamic_v0.69'
             this.STATIC_CACHE_LIST = [
                 './',
                 './index.html',
@@ -37,7 +37,9 @@
         staticCacheStrategy(e) {
             e.waitUntil((async () => {
                 const static_cache = await caches.open(this.STATIC_CACHE_NAME)
-                await static_cache.addAll(this.STATIC_CACHE_LIST)
+                // cache: 'reload' = 브라우저 보관함(HTTP 캐시)을 거치지 않고 서버에서 직접 받음.
+                // 호스팅이 max-age=600으로 내려줘서, 그냥 받으면 배포 직후 옛 파일이 새 캐시에 들어가 버전이 안 올라감
+                await static_cache.addAll(this.STATIC_CACHE_LIST.map(url => new Request(url, { cache: 'reload' })))
                 await self.skipWaiting()
             })())
         }
@@ -57,18 +59,26 @@
         }
 
         // 캐시 우선 + 백그라운드 갱신(stale-while-revalidate)
+        // - 이 앱의 파일(같은 주소): 서버에 바뀌었는지 물어보고(no-cache), 바뀐 것은 실제로 쓰는 static 캐시에 덮어씀
+        //   → 다음에 열 때 새 파일이 보임
+        // - 바깥 파일(웹폰트 등): dynamic 캐시에 보관
         dynamicCacheStrategy(e) {
             if (e.request.method !== 'GET') return
             if (!e.request.url.startsWith('http')) return
 
-            e.respondWith((async () => {
-                const matched_response = await caches.match(e.request, { ignoreSearch: e.request.mode === 'navigate' })
+            const is_app_file = new URL(e.request.url).origin === self.location.origin
+            const is_page = e.request.mode === 'navigate'
 
-                const network_fetch = fetch(e.request.clone())
+            e.respondWith((async () => {
+                const matched_response = await caches.match(e.request, { ignoreSearch: is_page })
+
+                const network_fetch = fetch(e.request, is_app_file ? { cache: 'no-cache' } : undefined)
                     .then(async (fetched_response) => {
                         if (fetched_response && (fetched_response.ok || fetched_response.type === 'opaque')) {
-                            const dynamic_cache = await caches.open(this.DYNAMIC_CACHE_NAME)
-                            await dynamic_cache.put(e.request, fetched_response.clone()).catch(() => {})
+                            const cache = await caches.open(is_app_file ? this.STATIC_CACHE_NAME : this.DYNAMIC_CACHE_NAME)
+                            // 페이지는 주소 뒤 ?값이 달라도 같은 칸('./')에 저장
+                            const key = is_page ? new URL('./', self.location.href).href : e.request
+                            await cache.put(key, fetched_response.clone()).catch(() => {})
                         }
                         return fetched_response
                     })
@@ -83,7 +93,7 @@
                 if (fetched_response) return fetched_response
 
                 // 오프라인에서 페이지 이동이면 앱 셸로 대체
-                if (e.request.mode === 'navigate') {
+                if (is_page) {
                     return caches.match('./index.html')
                 }
                 return new Response('', { status: 504, statusText: 'offline' })

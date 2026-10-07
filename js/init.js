@@ -1,9 +1,29 @@
 class RecipeBookInit {
     activeServiceWorker() {
         if (!('serviceWorker' in navigator)) return
+        // 새 버전의 서비스워커가 이 화면을 넘겨받으면 한 번 새로고침해서 새 파일을 보여 줌.
+        // (처음 설치될 때는 넘겨받을 이전 버전이 없으므로 새로고침하지 않음)
+        const had_controller = !!navigator.serviceWorker.controller
+        let reloaded = false
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!had_controller || reloaded) return
+            reloaded = true
+            // 뭔가 쓰는 중이면 방해하지 않음
+            if (ui.popup_open || ui.sheet || document.querySelector('.dialog-overlay')) {
+                return ui.toast('새 버전이 준비됐어요. 앱을 다시 열면 적용돼요')
+            }
+            location.reload()
+        })
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('service-worker.js')
-                .then(reg => console.log('Service worker registered', reg.scope))
+            // updateViaCache: 'none' = 서비스워커 파일 자체도 브라우저 보관함을 거치지 않고 확인
+            navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' })
+                .then((reg) => {
+                    console.log('Service worker registered', reg.scope)
+                    // 설치한 앱은 껐다 켜도 '새로 열기'가 아닐 수 있어서, 화면으로 돌아올 때마다 새 버전을 확인
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') reg.update().catch(() => {})
+                    })
+                })
                 .catch(err => console.log(err))
         })
     }
