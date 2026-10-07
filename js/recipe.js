@@ -634,7 +634,6 @@ class RecipeBook {
     }
 
     // 요리 이름이 빠르게 돌다가 점점 느려지고, 마지막에 당첨작에서 멈추는 룰렛
-    // (동작 줄이기 설정이면 CSS에서 미끄러지는 효과만 빠집니다)
     spinReel(pool, winner, token) {
         const reel = $('.lottery-reel span')
 
@@ -696,7 +695,6 @@ class RecipeBook {
 
     // 폭죽 조각을 가운데에서 사방으로 터뜨립니다.
     burstConfetti(stage) {
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
         const colors = [...this.theme.card_pack.slice(0, 8), this.theme.vars['--accent'], '#FFD54F', '#FF8A80', '#80D8FF']
         const layer = document.createElement('div')
         layer.className = 'confetti-layer'

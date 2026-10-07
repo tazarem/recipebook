@@ -764,9 +764,8 @@ button.chip:hover { border-color: var(--text); }
     will-change: transform;
 }
 .menu-overlay.collapse-x .menu-screen { transform: translateX(100%); }
-@media (prefers-reduced-motion: reduce) {
-    .menu-overlay, .menu-overlay.collapse-x, .menu-overlay::before, .menu-screen { transition: none; }
-}
+/* 기기의 '동작 줄이기' 설정과 상관없이 움직입니다. (사용자가 원한 효과인데 그 설정 때문에 꺼져 보였음)
+   메뉴·선택창·룰렛·폭죽 모두 같은 방침 */
 .menu-screen h3 { margin: 1.75rem 0 .25rem; }
 .menu-screen h3:first-child { margin-top: 0; }
 .config-caption { font-size: .85rem; color: var(--sub); margin-bottom: .5rem; }
@@ -1028,9 +1027,6 @@ button.chip:hover { border-color: var(--text); }
     /* 글자색은 그대로 두고 형광펜처럼 밑줄 강조 (배경과 강조색이 비슷한 테마 대비) */
     box-shadow: inset 0 -.4em 0 var(--accent);
     padding: 0 .15em;
-}
-@media (prefers-reduced-motion: reduce) {
-    .lottery-reel span.tick { animation: none; }
 }
 @keyframes reel-tick {
     from { transform: translateY(-60%); opacity: .2; }
@@ -1536,7 +1532,6 @@ img.sticker.lg { width: 64px; height: 64px; }
 .sheet-title { font-weight: bold; margin-bottom: .75rem; }
 .sheet-content { overflow-y: auto; }
 .sheet-clear { display: block; margin: 1rem auto 0; }
-@media (prefers-reduced-motion: reduce) { .sheet, .sheet-overlay::before { transition: none; } }
 
 .sheet-ratings { display: flex; flex-direction: column; gap: .5rem; }
 .sheet-ratings .rating-tag { padding: .8rem 1rem; font-size: 1.05rem; text-align: center; }
