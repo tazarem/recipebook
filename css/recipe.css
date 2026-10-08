@@ -1427,6 +1427,8 @@ img.sticker.lg { width: 64px; height: 64px; }
 }
 .rating-tag.yum { background: #FF8A80; }
 .rating-tag.ok { background: #FFD54F; }
+.rating-tag.healthy { background: #C5E1A5; color: #2E6B1F; } /* 연두 바탕 + 초록 글씨 */
+.rating-tag.again { background: #A9D4F5; color: #1A4F8A; }   /* 하늘 바탕 + 파란 글씨 */
 .rating-tag.bad { background: #B0BEC5; }
 .rating-tag.sm { padding: .05rem .45rem; border-width: 0; border-radius: .35rem; font-size: .68rem; vertical-align: middle; }
 

@@ -5,11 +5,13 @@
 const MEAL_SLOTS = ['아침', '점심', '저녁', '간식', '야식']
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-// 맛 평가 (3단계, 색 태그로 표시)
+// 맛 평가 (색 태그로 표시, 색은 css의 .rating-tag.<key>)
 const RATINGS = [
-    { key: 'yum', label: '맛있었당~' },
-    { key: 'ok', label: '나쁘지 않아' },
-    { key: 'bad', label: '별로..' },
+    { key: 'yum', label: '맛있었당~' },        // 빨강
+    { key: 'ok', label: '나쁘지 않아' },       // 노랑
+    { key: 'healthy', label: '건강한 맛!' },   // 초록
+    { key: 'again', label: '또 먹어볼까?' },   // 파랑
+    { key: 'bad', label: '별로..' },           // 회색
 ]
 // v0.65의 4단계 평가(good·soso)는 '나쁘지 않아'로
 function normalizeRating(value) {
