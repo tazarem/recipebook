@@ -2,8 +2,8 @@
     class RecipeBookWebCache {
         constructor() {
             // 앱 파일을 바꾸면 버전을 올려야 사용자 기기의 캐시가 갱신됩니다.
-            this.STATIC_CACHE_NAME = 'recipebook_static_v0.70'
-            this.DYNAMIC_CACHE_NAME = 'recipebook_dynamic_v0.70'
+            this.STATIC_CACHE_NAME = 'recipebook_static_v0.71'
+            this.DYNAMIC_CACHE_NAME = 'recipebook_dynamic_v0.71'
             this.STATIC_CACHE_LIST = [
                 './',
                 './index.html',
@@ -23,6 +23,27 @@
                 './lib/css/fontawesome5/all.min.css',
                 './lib/css/webfonts/fa-solid-900.woff2',
                 './lib/css/webfonts/fa-regular-400.woff2',
+                // 일기 스티커 (오프라인에서도 바로 보이게 미리 받아 둠. 장수를 바꾸면 여기와 config.js의 sticker_count를 같이)
+                './img/stickers/sticker_1.png',
+                './img/stickers/sticker_2.png',
+                './img/stickers/sticker_3.png',
+                './img/stickers/sticker_4.png',
+                './img/stickers/sticker_5.png',
+                './img/stickers/sticker_6.png',
+                './img/stickers/sticker_7.png',
+                './img/stickers/sticker_8.png',
+                './img/stickers/sticker_9.png',
+                './img/stickers/sticker_10.png',
+                './img/stickers/sticker_11.png',
+                './img/stickers/sticker_12.png',
+                './img/stickers/sticker_13.png',
+                './img/stickers/sticker_14.png',
+                './img/stickers/sticker_15.png',
+                './img/stickers/sticker_16.png',
+                './img/stickers/sticker_17.png',
+                './img/stickers/sticker_18.png',
+                './img/stickers/sticker_19.png',
+                './img/stickers/sticker_20.png',
             ]
             this.init()
         }
