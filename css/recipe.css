@@ -1580,3 +1580,41 @@ img.sticker.particle { width: 16px; height: 16px; }
 .diary-note::placeholder { color: var(--sub); opacity: .75; }
 .diary-btns { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; }
 .diary-btns .text-btn { margin-right: auto; }
+
+/* ---------- 앱으로 설치 안내 ---------- */
+.install-section .btn { margin-top: .25rem; }
+.install-section .fa-check-circle { color: #43A047; }
+/* 화면 아래 안내 한 줄 (아래 탭 바로 위) */
+.install-banner {
+    position: fixed;
+    left: .75rem;
+    right: .75rem;
+    bottom: calc(var(--nav-h) + .6rem + env(safe-area-inset-bottom));
+    z-index: 27;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    max-width: 30rem;
+    margin: 0 auto;
+    padding: .55rem .4rem .55rem .7rem;
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 0 0 1px var(--line), 0 4px 16px #00000033;
+    animation: install-banner-in .35s cubic-bezier(.2, .8, .2, 1);
+}
+@keyframes install-banner-in {
+    from { transform: translateY(1.5rem); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+.install-banner-icon { width: 1.75rem; height: 1.75rem; border-radius: .4rem; flex-shrink: 0; }
+.install-banner-text { flex: 1; min-width: 0; font-size: .85rem; line-height: 1.35; }
+.install-banner .btn { padding: .4rem .75rem; font-size: .82rem; white-space: nowrap; flex-shrink: 0; }
+/* 안내가 떠 있는 동안 추첨 버튼과 알림은 그 위로 */
+body.has-install-banner .lottery-fab { bottom: calc(var(--nav-h) + 5rem + env(safe-area-inset-bottom)); }
+body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(safe-area-inset-bottom)); }
+
+.install-steps { margin: 0; padding-left: 1.4rem; display: flex; flex-direction: column; gap: .7rem; line-height: 1.6; }
+.install-steps i, .share-icon { color: var(--accent); }
+.share-icon { width: 1.25em; height: 1.25em; vertical-align: -.25em; }
+.install-note { margin: 1rem 0 0; padding: .6rem .8rem; border-radius: .5rem; background: var(--bg); font-size: .82rem; }
+.install-guide-btns { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.1rem; }

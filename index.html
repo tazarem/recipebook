@@ -25,6 +25,7 @@
     <script src="./js/recipe.js"></script>
     <script src="./js/shopping.js"></script>
     <script src="./js/meal.js"></script>
+    <script src="./js/install.js"></script>
     <script src="./js/init.js"></script>
 </head>
 <body data-view="recipes">
@@ -125,6 +126,9 @@
                 <label><input type="radio" name="card_layout" value="name"> <i class="fas fa-align-justify"></i> 이름만</label>
             </div>
 
+            <h3>앱으로 설치</h3>
+            <div class="install-section"></div>
+
             <h3>백업</h3>
             <div class="config-caption">레시피는 이 기기의 브라우저(IndexedDB)에만 저장돼요. 기기를 바꾸거나 앱 데이터를 지우기 전에 내보내 두세요.</div>
             <div class="menu-btn-group">
@@ -150,6 +154,9 @@
         <span class="emoji" aria-hidden="true">🎉</span>
         <span class="badge"></span>
     </button>
+
+    <!-- 앱으로 설치 안내: 휴대폰 첫 방문 때 한 번 (닫으면 다시 안 뜸). 내용은 js/install.js -->
+    <div class="install-banner hide" role="region" aria-label="앱 설치 안내"></div>
 
     <div class="toast-zone" aria-live="polite"></div>
 </body>

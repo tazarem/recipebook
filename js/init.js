@@ -361,6 +361,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     init_svc.bindShopping()
     init_svc.bindMeals()
     init_svc.bindStickerFallback()
+    install_guide.init()
     init_svc.bindViews()
     // 넓은 화면에서는 필터 패널을 펼쳐 둡니다.
     if (window.matchMedia('(min-width: 769px)').matches) {
