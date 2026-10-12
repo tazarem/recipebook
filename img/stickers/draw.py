@@ -473,6 +473,23 @@ KTbTTTTTTTTTTbTK
 ..KKKKKKKKKKKK..
 ................
 ................"""
+ART['confetti_cake'] = """
+..............K.
+.............K..
+...........KK...
+..........KRPK..
+.......KKKKRRKK.
+....KKKWWWWKKWWK
+..KKWWRWWsWWWGWK
+.KWWsWWWYWWPWWWK
+.KCCRCCCsCCCGCWK
+.KCsCCGCCCPCCCWK
+.KWWWWWWWWWWWWWK
+.KCCYCCRCCCsCCWK
+.KCGCCCCPCCCRCWK
+.KKKKKKKKKKKKKKK
+................
+................"""
 ORDER = list(ART)
 if __name__ == '__main__':
     tiles = []
