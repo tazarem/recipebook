@@ -1,6 +1,6 @@
 /* 테마 - 파티노트 팔레트를 그대로 가져왔습니다 */
 const THEMES = {
-    partynote: {
+    cozybowl: {
         vars: { '--bg': '#FFCCBC', '--surface': '#FFF4EF', '--text': '#2B1D1A', '--sub': '#7A5A52', '--accent': '#FF8A80', '--accent-text': '#2B1D1A', '--line': '#0000001f', '--overlay': '#00000026' },
         card_pack: ['#FFE0B2', '#FFECB3', '#FFF9C4', '#F0F4C3', '#DCEDC8', '#C8E6C9', '#B2DFDB', '#B2EBF2', '#B3E5FC', '#BBDEFB', '#C5CAE9', '#D1C4E9', '#E1BEE7', '#F8BBD0', '#FFCDD2'],
         meta_color: '#FFCCBC',
@@ -32,7 +32,7 @@ const LEVELS = ['쉬움', '보통', '어려움']
 /* 환경설정 - 파티노트 note_config 처럼 localStorage 사용 */
 const recipe_config = (() => {
     const KEY = 'rcbk_config'
-    const _default = { app_theme: 'partynote', card_layout: 'box', sort: 'updated', category: 'all' }
+    const _default = { app_theme: 'cozybowl', card_layout: 'box', sort: 'updated', category: 'all' }
     let now = { ..._default }
     try { now = { ..._default, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch (e) { }
     return {
@@ -102,7 +102,9 @@ class RecipeBook {
 
     /* ---------- 테마 / 레이아웃 ---------- */
     applyTheme(name) {
-        const theme = THEMES[name] || THEMES.partynote
+        // 없는 이름(예전 이름 'partynote' 포함)이면 기본 테마로
+        if (!THEMES[name]) name = 'cozybowl'
+        const theme = THEMES[name]
         Object.entries(theme.vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v))
         $('meta[name="theme-color"]').setAttribute('content', theme.meta_color)
         document.documentElement.dataset.theme = name
