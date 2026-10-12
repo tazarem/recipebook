@@ -1618,3 +1618,9 @@ body.has-install-banner .toast-zone { bottom: calc(var(--nav-h) + 5rem + env(saf
 .share-icon { width: 1.25em; height: 1.25em; vertical-align: -.25em; }
 .install-note { margin: 1rem 0 0; padding: .6rem .8rem; border-radius: .5rem; background: var(--bg); font-size: .82rem; }
 .install-guide-btns { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.1rem; }
+
+/* ---------- 후원하기 (메뉴) ---------- */
+/* 바깥 스크립트(위젯)를 쓰지 않고 Ko-fi 페이지로 가는 링크만 둡니다. */
+.support-btn { background: #72A4F2; color: #fff; border-color: transparent; text-decoration: none; }
+/* Ko-fi 공식 심볼 (img/kofi_symbol.png, Ko-fi 브랜드 자료에서 받은 것) */
+.support-icon { height: 1.35em; width: auto; }
