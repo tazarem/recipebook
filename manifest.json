@@ -1,6 +1,6 @@
 {
-    "name": "RecipeBook",
-    "short_name": "RecipeBook",
+    "name": "레시피북",
+    "short_name": "레시피북",
     "description": "조리방법과 재료를 태그로 정리하는 나만의 레시피북",
     "icons": [
         {
