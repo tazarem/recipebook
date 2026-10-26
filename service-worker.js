@@ -2,8 +2,8 @@
     class RecipeBookWebCache {
         constructor() {
             // 앱 파일을 바꾸면 버전을 올려야 사용자 기기의 캐시가 갱신됩니다.
-            this.STATIC_CACHE_NAME = 'recipebook_static_v0.86'
-            this.DYNAMIC_CACHE_NAME = 'recipebook_dynamic_v0.86'
+            this.STATIC_CACHE_NAME = 'recipebook_static_v0.87'
+            this.DYNAMIC_CACHE_NAME = 'recipebook_dynamic_v0.87'
             this.STATIC_CACHE_LIST = [
                 './',
                 './index.html',
@@ -54,6 +54,7 @@
                 './img/stickers/sticker_26.png',
                 './img/stickers/sticker_27.png',
                 './img/stickers/sticker_28.png',
+                './img/stickers/sticker_29.png',
             ]
             this.init()
         }

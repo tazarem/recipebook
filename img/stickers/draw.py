@@ -1,5 +1,8 @@
-# 레시피북 일기 스티커의 원본. 글자 하나가 도트 하나인 16x16 격자.
-# 고친 뒤 이 폴더에서 `python3 draw.py` 를 돌리면 sticker_1.png ~ 이 다시 만들어집니다. (Pillow 필요)
+# 레시피북 일기 스티커를 처음 만들 때 쓰는 16x16 글자 격자 (글자 하나 = 도트 하나)
+# ⚠️ 원본은 PNG예요. sticker_1 ~ 28은 그림 툴에서 직접 다듬어서 아래 격자와 달라요(2026-10-17).
+#    그래서 이 파일은 **아직 없는 sticker_N.png만** 새로 만들고, 이미 있는 PNG는 절대 덮어쓰지 않아요.
+#    기존 스티커를 고치려면 PNG를 직접 고쳐 주세요. (격자를 고쳐도 기존 PNG에는 반영되지 않음)
+# 새 스티커: 맨 아래 ART에 추가 → 이 폴더에서 `python3 draw.py` (Pillow 필요) → 새 번호의 PNG만 생김
 # 장수가 바뀌면 config.js의 sticker_count와 service-worker.js의 목록도 같이 고쳐 주세요.
 import os
 from PIL import Image
@@ -494,15 +497,36 @@ ART['confetti_cake'] = """
 .KKKKKKKKKKKKKKK
 ................
 ................"""
+ART['tteokbokki'] = """
+................
+.....K....K.....
+......K....K....
+.....K....K.....
+...KKKKKKKKKK...
+..KPPPPPRKbbbK..
+..KRRRRRrKbTbK..
+.KKKKKKKKKKbKKK.
+.KrKPPPPPRKKPRK.
+KrGKRRRRRrKrRrrK
+KrrKKKKKKKrGrrrK
+KNNNNNNNNNNNNNNK
+KNUNNNNNNNNNNUNK
+.KNNNNNNNNNNNNK.
+..KKKKKKKKKKKK..
+................"""
 ORDER = list(ART)
 if __name__ == '__main__':
-    tiles = []
+    made, kept = [], []
     for i, name in enumerate(ORDER, 1):
+        path = os.path.join(HERE, f'sticker_{i}.png')
+        if os.path.exists(path): # 이미 있는 스티커(직접 다듬은 원본)는 건드리지 않음
+            kept.append(i)
+            continue
         rows = ART[name].strip('\n').split('\n')
         assert len(rows) == 16 and all(len(r) == 16 for r in rows), (name, [len(r) for r in rows])
         im = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
         for y, row in enumerate(rows):
             for x, ch in enumerate(row):
                 if PAL[ch]: im.putpixel((x, y), PAL[ch] + (255,))
-        im.save(os.path.join(HERE, f'sticker_{i}.png')); tiles.append(im)
-    print(len(tiles), '장:', ', '.join(f'{i}={n}' for i, n in enumerate(ORDER, 1)))
+        im.save(path); made.append(f'{i}={name}')
+    print(f'그대로 둔 것 {len(kept)}장, 새로 만든 것:', ', '.join(made) or '없음')
